@@ -145,12 +145,21 @@ export function PaymentSummary({
       )}
 
       {scenario.warnings.length > 0 && (
-        <div className="mt-4 space-y-2">
-          {scenario.warnings.map((warning) => (
-            <Callout key={warning} tone="warn">
-              {warning}
+        <div className="mt-4">
+          {scenario.warnings.length === 1 ? (
+            <Callout tone="warn">{scenario.warnings[0]}</Callout>
+          ) : (
+            <Callout
+              tone="warn"
+              title={`${scenario.warnings.length} things to check before you trust this number`}
+            >
+              <ul className="list-disc space-y-1.5 pl-4">
+                {scenario.warnings.map((warning) => (
+                  <li key={warning}>{warning}</li>
+                ))}
+              </ul>
             </Callout>
-          ))}
+          )}
         </div>
       )}
     </Card>

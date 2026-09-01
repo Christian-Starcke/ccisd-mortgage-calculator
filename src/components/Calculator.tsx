@@ -62,9 +62,13 @@ export function Calculator() {
         Skip to estimate
       </a>
 
-      <Header state={state} scenario={detailScenario} />
+      <Header state={state} />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
+        <div className="min-w-0 xl:col-span-2">
+          <AnswerCards ranking={ranking} state={state} />
+        </div>
+
         <div
           id="inputs"
           className="scroll-mt-4 scroll-mb-28 pb-24 xl:pb-0 xl:sticky xl:top-6 xl:max-h-[calc(100vh-3rem)] xl:overflow-y-auto xl:overscroll-contain xl:pr-1"
@@ -80,7 +84,6 @@ export function Calculator() {
           id="results"
           className="min-w-0 space-y-6 scroll-mt-4 scroll-mb-28"
         >
-          <AnswerCards ranking={ranking} state={state} />
           <PaymentSummary
             scenario={detailScenario}
             cashAvailable={state.cashAvailable}
@@ -89,6 +92,21 @@ export function Calculator() {
             scenario={detailScenario}
             cashAvailable={state.cashAvailable}
           />
+          <SavingsPlaybook actions={savingsActions} />
+          <ProgramComparison
+            rows={comparisonRows}
+            selectedId={
+              state.manualOverride
+                ? state.programId
+                : detailScenario.program.id
+            }
+            onSelect={(id) => {
+              update("manualOverride", true);
+              update("programId", id);
+            }}
+            state={state}
+          />
+          <AffordabilityCard affordability={affordability} state={state} />
 
           <Card title="More details">
             <div className="space-y-2">
@@ -97,39 +115,9 @@ export function Calculator() {
                   <TaxBreakdown scenario={detailScenario} />
                 </div>
               </Disclosure>
-              <Disclosure summary="Compare every loan program">
-                <div className="pt-2">
-                  <ProgramComparison
-                    rows={comparisonRows}
-                    selectedId={
-                      state.manualOverride
-                        ? state.programId
-                        : detailScenario.program.id
-                    }
-                    onSelect={(id) => {
-                      update("manualOverride", true);
-                      update("programId", id);
-                    }}
-                    state={state}
-                  />
-                </div>
-              </Disclosure>
               <Disclosure summary="Assistance applied on this path">
                 <div className="pt-2">
                   <AssistancePlaybook scenario={detailScenario} />
-                </div>
-              </Disclosure>
-              <Disclosure summary="Ways to save more">
-                <div className="pt-2">
-                  <SavingsPlaybook actions={savingsActions} />
-                </div>
-              </Disclosure>
-              <Disclosure summary="How much house you can afford">
-                <div className="pt-2">
-                  <AffordabilityCard
-                    affordability={affordability}
-                    state={state}
-                  />
                 </div>
               </Disclosure>
               <Disclosure summary="Cost and equity over time">
@@ -152,46 +140,20 @@ export function Calculator() {
   );
 }
 
-function Header({
-  state,
-  scenario,
-}: {
-  state: CalculatorState;
-  scenario: ScenarioResult;
-}) {
+function Header({ state }: { state: CalculatorState }) {
   const preset = findLocationPreset(state.locationId);
-  const monthly =
-    scenario.monthly.totalAfterTaxCredit < scenario.monthly.total
-      ? scenario.monthly.totalAfterTaxCredit
-      : scenario.monthly.total;
 
   return (
     <header className="border-b border-ink-200 pb-5">
-      <div className="flex flex-col gap-4 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between xl:gap-x-8">
-        <div className="min-w-0">
-          <h1 className="text-pretty text-lg font-semibold tracking-tight text-ink-900 sm:text-2xl">
-            Fort Bend ISD mortgage &amp; affordability calculator
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-pretty text-ink-500">
-            {state.resolvedParcel && !state.resolvedParcel.isFortBendIsd
-              ? `This parcel is billed by ${state.resolvedParcel.schoolName ?? "another school district"}, not Fort Bend ISD. Treat every number here as a warning, not a quote.`
-              : `Built for a first-time buyer in ${preset?.name ?? "Fort Bend County"}. Enter the house and your income — the calculator picks the cheapest loan and assistance stack.`}
-          </p>
-        </div>
-        <div className="hidden xl:flex xl:flex-wrap xl:items-end xl:gap-x-8 xl:gap-y-2 xl:text-sm">
-          <div>
-            <div className="field-label">Monthly</div>
-            <div className="tnum text-lg font-semibold text-ink-900">
-              {formatUSD(monthly)}
-            </div>
-          </div>
-          <div>
-            <div className="field-label">Cash to close</div>
-            <div className="tnum text-lg font-semibold text-ink-900">
-              {formatUSD(scenario.cashToClose.netCashDue)}
-            </div>
-          </div>
-        </div>
+      <div className="min-w-0">
+        <h1 className="text-pretty text-lg font-semibold tracking-tight text-ink-900 sm:text-2xl">
+          Fort Bend ISD mortgage &amp; affordability calculator
+        </h1>
+        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-pretty text-ink-500">
+          {state.resolvedParcel && !state.resolvedParcel.isFortBendIsd
+            ? `This parcel is billed by ${state.resolvedParcel.schoolName ?? "another school district"}, not Fort Bend ISD. Treat every number here as a warning, not a quote.`
+            : `Built for a first-time buyer in ${preset?.name ?? "Fort Bend County"}. Enter the house and your income — the calculator picks the cheapest loan and assistance stack.`}
+        </p>
       </div>
     </header>
   );
