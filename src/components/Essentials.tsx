@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { findLocationPreset, typicalHoaForLocation } from "@/data/fortBendTaxRates";
 import { type CalculatorState, type UpdateState } from "@/lib/defaults";
 import { formatUSD } from "@/lib/money";
@@ -30,23 +31,7 @@ export function Essentials({
       <Card
         title="The house"
         subtitle="Address and listing price. Everything else about the property is looked up."
-        action={
-          <button
-            type="button"
-            onClick={() => {
-              if (
-                window.confirm(
-                  "Reset every input back to the defaults? What you have typed will be lost.",
-                )
-              ) {
-                onReset();
-              }
-            }}
-            className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-ink-500 underline decoration-ink-300 underline-offset-2 hover:text-ink-800"
-          >
-            Reset all
-          </button>
-        }
+        action={<ResetButton onReset={onReset} />}
       >
         <div className="space-y-4">
           <AddressLookup state={state} update={update} />
@@ -187,5 +172,41 @@ export function Essentials({
         </div>
       </Card>
     </div>
+  );
+}
+
+/**
+ * Two-step reset. A confirm() dialog would block the main thread for as long
+ * as the user reads it, which performance tools report as a multi-second
+ * interaction; arming the button for a few seconds confirms without blocking.
+ */
+function ResetButton({ onReset }: { onReset: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+
+  useEffect(() => {
+    if (!confirming) return;
+    const handle = window.setTimeout(() => setConfirming(false), 4000);
+    return () => window.clearTimeout(handle);
+  }, [confirming]);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (confirming) {
+          setConfirming(false);
+          onReset();
+        } else {
+          setConfirming(true);
+        }
+      }}
+      className={`-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium underline underline-offset-2 ${
+        confirming
+          ? "text-alert-700 decoration-alert-100"
+          : "text-ink-500 decoration-ink-300 hover:text-ink-800"
+      }`}
+    >
+      {confirming ? "Click again to reset everything" : "Reset all"}
+    </button>
   );
 }
