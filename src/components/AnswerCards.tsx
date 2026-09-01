@@ -75,14 +75,25 @@ export function AnswerCards({
   const cashIsDifferent = pathKey(lowestCash) !== combinedKey;
 
   return (
-    <Card
-      title="Best pair"
-      subtitle={`${bestCombined.scenario.program.shortName} · ${assistanceLabel(bestCombined.assistanceIds)}`}
-    >
+    <Card title="Best pair">
       <p className="text-sm leading-relaxed text-ink-500">
         Closest to both lowest monthly payment and least cash to close on the
         same loan and assistance stack.
       </p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div>
+          <div className="field-label !mb-0">Loan</div>
+          <div className="text-sm font-semibold leading-snug text-ink-900">
+            {bestCombined.scenario.program.shortName}
+          </div>
+        </div>
+        <div>
+          <div className="field-label !mb-0">Assistance</div>
+          <div className="text-sm font-semibold leading-snug text-ink-900">
+            {assistanceLabel(bestCombined.assistanceIds)}
+          </div>
+        </div>
+      </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
           <div className="field-label !mb-0">Monthly</div>
