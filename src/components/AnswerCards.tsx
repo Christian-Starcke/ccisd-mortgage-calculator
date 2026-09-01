@@ -5,31 +5,28 @@ import { findLocationPreset } from "@/data/fortBendTaxRates";
 import type { CalculatorState } from "@/lib/defaults";
 import { formatUSD } from "@/lib/money";
 import type { PathRanking, RankedPath } from "@/lib/pathRank";
-import { Callout, Card } from "./ui";
-
-function assistanceLabel(ids: string[]): string {
-  if (ids.length === 0) return "No down-payment assistance";
-  return ids
-    .map(
-      (id) =>
-        ASSISTANCE_PROGRAMS.find((program) => program.id === id)?.name ?? id,
-    )
-    .join(" + ");
-}
+import type { ScenarioResult } from "@/lib/scenario";
+import { Badge, Callout, Card } from "./ui";
 
 function pathKey(path: RankedPath): string {
   return `${path.programId}|${[...path.assistanceIds].sort().join(",")}`;
 }
 
+function acceptedLabel(scenario: ScenarioResult): string {
+  const accepted = scenario.assistance.accepted;
+  if (accepted.length === 0) return "No down-payment assistance";
+  return accepted.map((ev) => ev.program.name).join(" + ");
+}
+
 function CashNote({
-  path,
+  netCashDue,
   cashAvailable,
 }: {
-  path: RankedPath;
+  netCashDue: number;
   cashAvailable: number;
 }) {
   if (cashAvailable <= 0) return null;
-  const delta = path.netCashDue - cashAvailable;
+  const delta = netCashDue - cashAvailable;
   if (Math.abs(delta) < 0.5) {
     return (
       <p className="mt-3 text-xs text-brand-200">
@@ -52,13 +49,19 @@ function CashNote({
 }
 
 export function AnswerCards({
+  scenario,
   ranking,
   state,
+  onSelectPath,
+  onAutoPick,
 }: {
+  scenario: ScenarioResult;
   ranking: PathRanking;
   state: CalculatorState;
+  onSelectPath: (path: RankedPath) => void;
+  onAutoPick: () => void;
 }) {
-  const { lowestMonthly, lowestCash, bestCombined, samePath } = ranking;
+  const { lowestMonthly, lowestCash, bestCombined } = ranking;
 
   if (!bestCombined || !lowestMonthly || !lowestCash) {
     return (
@@ -71,24 +74,40 @@ export function AnswerCards({
     );
   }
 
-  const showExtremes = !samePath;
-  const combinedKey = pathKey(bestCombined);
-  const monthlyIsDifferent = pathKey(lowestMonthly) !== combinedKey;
-  const cashIsDifferent = pathKey(lowestCash) !== combinedKey;
+  const acceptedIds = scenario.assistance.accepted.map((ev) => ev.program.id);
+  const selectedKey = `${scenario.program.id}|${[...acceptedIds].sort().join(",")}`;
+  const monthly =
+    scenario.monthly.totalAfterTaxCredit < scenario.monthly.total
+      ? scenario.monthly.totalAfterTaxCredit
+      : scenario.monthly.total;
+
+  const alternatives: { path: RankedPath; reason: string }[] = [];
+  if (pathKey(lowestMonthly) !== selectedKey) {
+    alternatives.push({ path: lowestMonthly, reason: "Lowest monthly" });
+  }
+  if (
+    pathKey(lowestCash) !== selectedKey &&
+    !alternatives.some(
+      (candidate) => pathKey(candidate.path) === pathKey(lowestCash),
+    )
+  ) {
+    alternatives.push({ path: lowestCash, reason: "Least cash" });
+  }
 
   return (
     <div>
       <section
-        aria-label="Best loan and assistance pair"
+        aria-label="Selected loan and assistance pair"
         className="card border-brand-900 bg-brand-900 p-5 text-white shadow-lg shadow-brand-900/20 sm:p-7"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 className="text-base font-semibold tracking-tight">
-            Your best pair
+            {state.manualOverride ? "Your pick" : "Your best pair"}
           </h2>
           <p className="text-xs text-brand-300">
-            Closest to lowest monthly and least cash on one loan and assistance
-            stack.
+            {state.manualOverride
+              ? "The path you picked, priced out."
+              : "Closest to lowest monthly and least cash on one loan and assistance stack."}
           </p>
         </div>
 
@@ -96,61 +115,102 @@ export function AnswerCards({
           <div className="min-w-0">
             <div className="hero-label">Monthly payment</div>
             <div className="tnum break-words text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
-              {formatUSD(bestCombined.effectiveMonthly)}
+              {formatUSD(monthly)}
             </div>
           </div>
           <div className="min-w-0">
             <div className="hero-label">Cash to close</div>
             <div className="tnum break-words text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
-              {formatUSD(bestCombined.netCashDue)}
+              {formatUSD(scenario.cashToClose.netCashDue)}
             </div>
           </div>
         </div>
 
-        <CashNote path={bestCombined} cashAvailable={state.cashAvailable} />
+        <CashNote
+          netCashDue={scenario.cashToClose.netCashDue}
+          cashAvailable={state.cashAvailable}
+        />
 
         <dl className="mt-6 grid gap-4 border-t border-brand-800 pt-5 sm:grid-cols-2">
           <div className="min-w-0">
             <dt className="hero-label">Loan</dt>
             <dd className="break-words text-sm font-semibold leading-snug">
-              {bestCombined.scenario.program.shortName}
+              {scenario.program.shortName}
             </dd>
           </div>
           <div className="min-w-0">
             <dt className="hero-label">Assistance</dt>
             <dd className="break-words text-sm font-semibold leading-snug">
-              {assistanceLabel(bestCombined.assistanceIds)}
+              {acceptedLabel(scenario)}
             </dd>
           </div>
         </dl>
 
-        {(state.manualOverride ||
-          (showExtremes && (monthlyIsDifferent || cashIsDifferent))) && (
-          <div className="mt-4 space-y-1 text-xs leading-relaxed text-brand-200">
-            {showExtremes && monthlyIsDifferent && (
-              <p>
-                Lowest monthly alone is{" "}
-                {lowestMonthly.scenario.program.shortName} at{" "}
-                {formatUSD(lowestMonthly.effectiveMonthly)}, with{" "}
-                {formatUSD(lowestMonthly.netCashDue)} to close.
-              </p>
-            )}
-            {showExtremes && cashIsDifferent && (
-              <p>
-                Least cash alone is {lowestCash.scenario.program.shortName} at{" "}
-                {formatUSD(lowestCash.netCashDue)}, with{" "}
-                {formatUSD(lowestCash.effectiveMonthly)} a month.
-              </p>
-            )}
-            {state.manualOverride && (
-              <p>
-                Manual override is on — the breakdown below uses your pick.
-                This card still shows the auto-ranked pair.
-              </p>
-            )}
+        {state.manualOverride && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-brand-800 pt-4">
+            <p className="text-xs text-brand-200">
+              You picked this path yourself. The ranker’s pick is one tap away.
+            </p>
+            <button
+              type="button"
+              onClick={onAutoPick}
+              className="inline-flex min-h-11 items-center rounded-md border border-brand-700 px-3 text-xs font-semibold text-white hover:bg-brand-800"
+            >
+              Back to the auto pick
+            </button>
           </div>
         )}
       </section>
+
+      {alternatives.length > 0 && (
+        <div className="mt-4">
+          <Card
+            title="Other top picks"
+            subtitle="Same house, different tradeoff. Pick one to re-price everything below."
+          >
+            <div className="divide-y divide-ink-100">
+              {alternatives.map(({ path, reason }) => (
+                <button
+                  key={pathKey(path)}
+                  type="button"
+                  onClick={() => onSelectPath(path)}
+                  className="flex w-full items-center gap-3 py-3 text-left hover:bg-ink-50 sm:gap-4"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-ink-900">
+                        {path.scenario.program.shortName}
+                      </span>
+                      <Badge tone="neutral">{reason}</Badge>
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-ink-500">
+                      {path.assistanceIds.length === 0
+                        ? "No down-payment assistance"
+                        : path.assistanceIds
+                            .map(
+                              (id) =>
+                                ASSISTANCE_PROGRAMS.find(
+                                  (program) => program.id === id,
+                                )?.name ?? id,
+                            )
+                            .join(" + ")}
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="tnum text-sm font-semibold text-ink-900">
+                      {formatUSD(path.effectiveMonthly)}
+                      <span className="font-normal text-ink-500">/mo</span>
+                    </div>
+                    <div className="tnum text-xs text-ink-500">
+                      {formatUSD(path.netCashDue)} to close
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {!state.resolvedParcel && state.addressQuery.trim().length > 0 && (
         <div className="mt-4">

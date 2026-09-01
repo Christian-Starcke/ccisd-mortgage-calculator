@@ -8,7 +8,6 @@ import {
   resolveTaxingUnits,
 } from "@/data/fortBendTaxRates";
 import { FORT_BEND_TAX_UNIT_CODES } from "@/data/fortBendTaxUnitCodes";
-import { ASSISTANCE_PROGRAMS } from "@/data/assistancePrograms";
 import {
   DWELLING_COVERAGE_FRACTION,
   estimateHomeownersInsurance,
@@ -18,12 +17,9 @@ import {
   type CalculatorState,
   type UpdateState,
 } from "@/lib/defaults";
-import { LOAN_PROGRAM_ORDER, LOAN_PROGRAMS } from "@/lib/loanPrograms";
 import { formatUSD } from "@/lib/money";
 import { calculatePropertyTax } from "@/lib/propertyTax";
-import type { LoanProgramId } from "@/lib/types";
 import {
-  Badge,
   Callout,
   Card,
   CurrencyInput,
@@ -84,7 +80,7 @@ export function DerivedAssumptions({
   return (
     <Card
       title="More options"
-      subtitle="Overrides for tax districts, insurance, rate, cash help, and a manual loan pick. The best-pair card still shows the auto-ranked path."
+      subtitle="Overrides for tax districts, insurance, rate, cash help, and projections."
     >
       <div className="space-y-2">
         <Disclosure
@@ -448,79 +444,6 @@ export function DerivedAssumptions({
                 />
               </Field>
             </div>
-          </div>
-        </Disclosure>
-
-        <Disclosure summary="Pick a loan yourself">
-          <div className="space-y-4 pt-1">
-            <Toggle
-              checked={state.manualOverride}
-              onChange={(checked) => update("manualOverride", checked)}
-              label="Use these instead of the auto pick"
-              hint="The best-pair card still shows the cheapest combined path. The breakdown below switches to your manual choice."
-            />
-            {state.manualOverride && (
-              <>
-                <Field label="Loan program" htmlFor="manual-program">
-                  <Select
-                    id="manual-program"
-                    value={state.programId}
-                    onChange={(value) =>
-                      update("programId", value as LoanProgramId)
-                    }
-                    options={LOAN_PROGRAM_ORDER.map((id) => ({
-                      value: id,
-                      label: LOAN_PROGRAMS[id].shortName,
-                    }))}
-                  />
-                </Field>
-                <div className="space-y-3 border-t border-ink-200 pt-4">
-                  <p className="text-xs font-medium uppercase tracking-wide text-ink-500">
-                    Assistance to apply
-                  </p>
-                  {ASSISTANCE_PROGRAMS.map((program) => (
-                    <label
-                      key={program.id}
-                      htmlFor={`assist-${program.id}`}
-                      className="flex min-h-11 cursor-pointer gap-3 py-1"
-                    >
-                      <input
-                        id={`assist-${program.id}`}
-                        type="checkbox"
-                        className="mt-1 size-5 shrink-0 cursor-pointer rounded border-ink-300"
-                        checked={state.selectedAssistanceIds.includes(program.id)}
-                        onChange={(event) => {
-                          update(
-                            "selectedAssistanceIds",
-                            event.target.checked
-                              ? [...state.selectedAssistanceIds, program.id]
-                              : state.selectedAssistanceIds.filter(
-                                  (id) => id !== program.id,
-                                ),
-                          );
-                        }}
-                      />
-                      <span className="min-w-0">
-                        <span className="flex flex-wrap items-center gap-2 text-sm font-medium leading-snug text-ink-800">
-                          <span>{program.name}</span>
-                          {program.confidence === "verified" ? (
-                            <Badge tone="good">Verified</Badge>
-                          ) : (
-                            <Badge tone="warn">Verify</Badge>
-                          )}
-                        </span>
-                        <span className="mt-1 block text-xs leading-relaxed text-ink-500">
-                          {program.administrator}
-                          {program.ratePremium
-                            ? ` · +${(program.ratePremium * 100).toFixed(2)}% rate`
-                            : ""}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
           </div>
         </Disclosure>
 

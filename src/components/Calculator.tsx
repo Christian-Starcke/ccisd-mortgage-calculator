@@ -9,9 +9,18 @@ import {
   estimateHomeownersInsurance,
   type CalculatorState,
 } from "@/lib/defaults";
-import { LOAN_PROGRAM_ORDER, checkEligibility } from "@/lib/loanPrograms";
+import {
+  LOAN_PROGRAM_ORDER,
+  LOAN_PROGRAMS,
+  checkEligibility,
+  type EligibilityFinding,
+} from "@/lib/loanPrograms";
 import { formatUSD } from "@/lib/money";
-import { rankPaths } from "@/lib/pathRank";
+import {
+  enumerateAssistanceStacks,
+  rankPaths,
+  type RankedPath,
+} from "@/lib/pathRank";
 import { buildScenario, type ScenarioResult } from "@/lib/scenario";
 import {
   TAX_YEAR,
@@ -19,6 +28,8 @@ import {
   presetCombinedRate,
   LOCATION_PRESETS,
 } from "@/data/fortBendTaxRates";
+import { ASSISTANCE_PROGRAMS } from "@/data/assistancePrograms";
+import type { LoanProgramId } from "@/lib/types";
 import { AnswerCards } from "./AnswerCards";
 import { InputPanel } from "./InputPanel";
 import {
@@ -35,7 +46,7 @@ import {
   PaymentSummary,
   TaxBreakdown,
 } from "./Results";
-import { Card, Disclosure, usePersistentState } from "./ui";
+import { Card, Disclosure, Field, Select, usePersistentState } from "./ui";
 
 export function Calculator() {
   const [state, setState] = usePersistentState<CalculatorState>(
@@ -58,6 +69,18 @@ export function Calculator() {
   const { ranking, detailScenario, comparisonRows, affordability, savingsActions } =
     useMemo(() => derive(deferredState), [deferredState]);
 
+  const selectPath = (path: RankedPath) => {
+    const auto = ranking.bestCombined;
+    const isAutoPick =
+      auto != null &&
+      auto.programId === path.programId &&
+      [...auto.assistanceIds].sort().join(",") ===
+        [...path.assistanceIds].sort().join(",");
+    update("manualOverride", !isAutoPick);
+    update("programId", path.programId);
+    update("selectedAssistanceIds", path.assistanceIds);
+  };
+
   return (
     <div className="mx-auto max-w-[100rem] pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(1.25rem,env(safe-area-inset-top,0px))] sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 xl:pb-24">
       <a
@@ -70,8 +93,30 @@ export function Calculator() {
       <Header state={state} />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
-        <div className="min-w-0 xl:col-span-2">
-          <AnswerCards ranking={ranking} state={state} />
+        <div className="min-w-0 space-y-6 xl:col-span-2">
+          <AnswerCards
+            scenario={detailScenario}
+            ranking={ranking}
+            state={state}
+            onSelectPath={selectPath}
+            onAutoPick={() => update("manualOverride", false)}
+          />
+          {ranking.bestCombined && (
+            <PathPicker
+              scenario={detailScenario}
+              comparisonRows={comparisonRows}
+              manualOverride={state.manualOverride}
+              onPickLoan={(id) => {
+                update("manualOverride", true);
+                update("programId", id);
+              }}
+              onPickAssistance={(ids) => {
+                update("manualOverride", true);
+                update("selectedAssistanceIds", ids);
+              }}
+              onAutoPick={() => update("manualOverride", false)}
+            />
+          )}
         </div>
 
         <div
@@ -97,24 +142,32 @@ export function Calculator() {
             scenario={detailScenario}
             cashAvailable={state.cashAvailable}
           />
-          <SavingsPlaybook actions={savingsActions} />
-          <ProgramComparison
-            rows={comparisonRows}
-            selectedId={
-              state.manualOverride
-                ? state.programId
-                : detailScenario.program.id
-            }
-            onSelect={(id) => {
-              update("manualOverride", true);
-              update("programId", id);
-            }}
-            state={state}
-          />
           <AffordabilityCard affordability={affordability} state={state} />
 
           <Card title="More details">
             <div className="space-y-2">
+              <Disclosure summary="Ways to save more">
+                <div className="pt-2">
+                  <SavingsPlaybook actions={savingsActions} />
+                </div>
+              </Disclosure>
+              <Disclosure summary="Every loan program, side by side">
+                <div className="pt-2">
+                  <ProgramComparison
+                    rows={comparisonRows}
+                    selectedId={
+                      state.manualOverride
+                        ? state.programId
+                        : detailScenario.program.id
+                    }
+                    onSelect={(id) => {
+                      update("manualOverride", true);
+                      update("programId", id);
+                    }}
+                    state={state}
+                  />
+                </div>
+              </Disclosure>
               <Disclosure summary="Tax districts on this bill">
                 <div className="pt-2">
                   <TaxBreakdown scenario={detailScenario} />
@@ -274,6 +327,100 @@ function MobileSummaryBar({ scenario }: { scenario: ScenarioResult }) {
         </a>
       </div>
     </nav>
+  );
+}
+
+/**
+ * Loan and assistance dropdowns over the active scenario. The assistance
+ * dropdown lists only the legal stacks for the chosen loan, so an invalid
+ * combination cannot be selected. Picking anything turns on the manual
+ * override; the "back to the auto pick" button hands control to the ranker.
+ */
+function PathPicker({
+  scenario,
+  comparisonRows,
+  manualOverride,
+  onPickLoan,
+  onPickAssistance,
+  onAutoPick,
+}: {
+  scenario: ScenarioResult;
+  comparisonRows: ProgramComparisonRow[];
+  manualOverride: boolean;
+  onPickLoan: (id: LoanProgramId) => void;
+  onPickAssistance: (ids: string[]) => void;
+  onAutoPick: () => void;
+}) {
+  const stackValue = (ids: string[]) => [...ids].sort().join(",");
+  const namesFor = (ids: string[]) =>
+    ids.length === 0
+      ? "No assistance"
+      : ids
+          .map(
+            (id) =>
+              ASSISTANCE_PROGRAMS.find((program) => program.id === id)?.name ??
+              id,
+          )
+          .join(" + ");
+
+  const stackOptions = enumerateAssistanceStacks(
+    scenario.assistance.evaluations,
+  ).map((ids) => ({ value: stackValue(ids), label: namesFor(ids) }));
+
+  const acceptedIds = scenario.assistance.accepted.map((ev) => ev.program.id);
+  const currentValue = stackValue(acceptedIds);
+  if (!stackOptions.some((option) => option.value === currentValue)) {
+    stackOptions.push({ value: currentValue, label: namesFor(acceptedIds) });
+  }
+
+  const eligibilityById = new Map<string, EligibilityFinding["status"]>(
+    comparisonRows.map((row) => [
+      row.scenario.program.id,
+      row.eligibility.status,
+    ]),
+  );
+
+  return (
+    <Card
+      title="Adjust the pick"
+      subtitle="Switch the loan or the assistance and everything below re-prices."
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Loan program" htmlFor="pick-loan">
+          <Select
+            id="pick-loan"
+            value={scenario.program.id}
+            onChange={(value) => onPickLoan(value as LoanProgramId)}
+            options={LOAN_PROGRAM_ORDER.map((id) => ({
+              value: id,
+              label:
+                eligibilityById.get(id) === "ineligible"
+                  ? `${LOAN_PROGRAMS[id].shortName} — not eligible`
+                  : LOAN_PROGRAMS[id].shortName,
+            }))}
+          />
+        </Field>
+        <Field label="Assistance" htmlFor="pick-assistance">
+          <Select
+            id="pick-assistance"
+            value={currentValue}
+            onChange={(value) =>
+              onPickAssistance(value === "" ? [] : value.split(","))
+            }
+            options={stackOptions}
+          />
+        </Field>
+      </div>
+      {manualOverride && (
+        <button
+          type="button"
+          onClick={onAutoPick}
+          className="mt-4 inline-flex min-h-11 items-center rounded-md border border-ink-300 px-3 text-sm font-medium text-ink-700 hover:bg-ink-50"
+        >
+          Back to the auto pick
+        </button>
+      )}
+    </Card>
   );
 }
 
