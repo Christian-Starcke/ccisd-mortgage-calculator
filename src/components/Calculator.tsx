@@ -283,13 +283,19 @@ function MobileSummaryBar({ scenario }: { scenario: ScenarioResult }) {
       <div className="mx-auto flex max-w-[100rem] items-center gap-3 py-2 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))]">
         <a href="#results" className="min-w-0 flex-1">
           <div className="field-label !mb-0">Monthly</div>
-          <div className="tnum truncate text-base font-semibold text-ink-900">
+          <div
+            aria-live="polite"
+            className="tnum truncate text-base font-semibold text-ink-900"
+          >
             {formatUSD(monthly)}
           </div>
         </a>
         <a href="#results" className="min-w-0 flex-1">
           <div className="field-label !mb-0">Cash to close</div>
-          <div className="tnum truncate text-base font-semibold text-ink-900">
+          <div
+            aria-live="polite"
+            className="tnum truncate text-base font-semibold text-ink-900"
+          >
             {formatUSD(scenario.cashToClose.netCashDue)}
           </div>
         </a>

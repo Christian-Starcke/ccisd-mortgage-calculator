@@ -168,27 +168,29 @@ export function AddressLookup({
         />
       </Field>
 
-      {state.lookupStatus === "searching" && (
-        <p className="text-xs text-ink-500">Searching Fort Bend CAD…</p>
-      )}
-      {state.lookupStatus === "looking-up" && (
-        <p className="text-xs text-ink-500">
-          Pulling tax units, USDA eligibility and flood zone…
-        </p>
-      )}
-      {state.lookupError && (
-        <Callout tone="warn" title="Address lookup failed">
-          {state.lookupError} Use the location and MUD pickers below as a
-          fallback.
-        </Callout>
-      )}
+      <div role="status" aria-live="polite" className="space-y-3">
+        {state.lookupStatus === "searching" && (
+          <p className="text-xs text-ink-500">Searching Fort Bend CAD…</p>
+        )}
+        {state.lookupStatus === "looking-up" && (
+          <p className="text-xs text-ink-500">
+            Pulling tax units, USDA eligibility and flood zone…
+          </p>
+        )}
+        {state.lookupError && (
+          <Callout tone="warn" title="Address lookup failed">
+            {state.lookupError} Use the location and MUD pickers below as a
+            fallback.
+          </Callout>
+        )}
 
-      {state.lookupStatus === "awaiting-pick" && candidates.length === 0 && (
-        <Callout tone="warn" title="No matching Fort Bend parcels">
-          Try the house number plus the street name, without the city. FBCAD
-          often stores a different city than the mailing address.
-        </Callout>
-      )}
+        {state.lookupStatus === "awaiting-pick" && candidates.length === 0 && (
+          <Callout tone="warn" title="No matching Fort Bend parcels">
+            Try the house number plus the street name, without the city. FBCAD
+            often stores a different city than the mailing address.
+          </Callout>
+        )}
+      </div>
 
       {candidates.length > 0 && state.lookupStatus === "awaiting-pick" && (
         <div className="space-y-2 rounded-lg border border-ink-200 bg-white p-2">

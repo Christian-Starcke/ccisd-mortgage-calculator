@@ -33,7 +33,15 @@ export function Essentials({
         action={
           <button
             type="button"
-            onClick={onReset}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Reset every input back to the defaults? What you have typed will be lost.",
+                )
+              ) {
+                onReset();
+              }
+            }}
             className="-mx-2 inline-flex min-h-11 items-center px-2 text-sm font-medium text-ink-500 underline decoration-ink-300 underline-offset-2 hover:text-ink-800"
           >
             Reset all
@@ -81,8 +89,9 @@ export function Essentials({
             </Callout>
           )}
           {state.hoaCertainty === "known" && (
-            <Field label="HOA dues per year">
+            <Field label="HOA dues per year" htmlFor="hoa-dues">
               <CurrencyInput
+                id="hoa-dues"
                 value={state.annualHoaDues}
                 onChange={(value) => update("annualHoaDues", value)}
                 max={20_000}

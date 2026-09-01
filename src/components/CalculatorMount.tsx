@@ -15,7 +15,7 @@ const Calculator = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="mx-auto max-w-[100rem] animate-pulse px-4 pt-[max(1.25rem,env(safe-area-inset-top,0px))] sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[100rem] motion-safe:animate-pulse px-4 pt-[max(1.25rem,env(safe-area-inset-top,0px))] sm:px-6 lg:px-8">
         <div className="h-8 w-2/3 max-w-lg rounded bg-ink-100" />
         <div className="mt-3 h-4 w-full max-w-2xl rounded bg-ink-100" />
         <div className="mt-8 grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">

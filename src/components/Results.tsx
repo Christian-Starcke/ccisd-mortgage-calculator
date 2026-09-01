@@ -91,7 +91,10 @@ export function PaymentSummary({
       </div>
 
       {/* Stacked bar showing what the payment is actually made of. */}
-      <div className="mt-6 flex h-3 w-full overflow-hidden rounded-full bg-ink-100">
+      <div
+        aria-hidden="true"
+        className="mt-6 flex h-3 w-full overflow-hidden rounded-full bg-ink-100"
+      >
         {segments.map(([label, amount, color]) => (
           <div
             key={label}

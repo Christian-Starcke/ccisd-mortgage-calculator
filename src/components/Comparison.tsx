@@ -329,7 +329,17 @@ export function ProgramComparison({
                 >
                   <td className="py-3 pr-3">
                     <div className="flex items-center gap-2 font-medium text-ink-900">
-                      {scenario.program.shortName}
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onSelect(scenario.program.id);
+                        }}
+                        aria-pressed={isSelected}
+                        className="-mx-1 rounded px-1 font-medium text-ink-900 underline-offset-2 hover:underline"
+                      >
+                        {scenario.program.shortName}
+                      </button>
                       {isSelected && <Badge tone="brand">Selected</Badge>}
                     </div>
                     <div className="mt-0.5 max-w-sm text-xs leading-relaxed text-ink-500">

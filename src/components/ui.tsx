@@ -330,6 +330,7 @@ export function Slider({
   max,
   step,
   format,
+  id,
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -337,10 +338,12 @@ export function Slider({
   max: number;
   step: number;
   format: (value: number) => string;
+  id?: string;
 }) {
   return (
     <div>
       <input
+        id={id}
         type="range"
         className="w-full cursor-pointer"
         min={min}

@@ -37,7 +37,7 @@ function CashNote({
   }
   if (delta > 0) {
     return (
-      <p className="mt-2 text-xs text-amber-800">
+      <p className="mt-2 text-xs text-flag-700">
         Needs {formatUSD(delta)} more than the cash you listed.
       </p>
     );

@@ -165,9 +165,11 @@ export function DerivedAssumptions({
                 </Field>
                 <Field
                   label="Utility district rate per $100"
+                  htmlFor="utility-rate"
                   hint="Leave blank to use the dropdown. Required for private-collector districts."
                 >
                   <PercentInput
+                    id="utility-rate"
                     value={(state.manualUtilityRatePer100 ?? 0) / 100}
                     onChange={(fraction) =>
                       update(
@@ -188,9 +190,11 @@ export function DerivedAssumptions({
                 <Field
                   key={code}
                   label={`${record?.name ?? code} rate per $100`}
+                  htmlFor={`rate-${code}`}
                   hint="Private collector — enter the rate from the appraisal record."
                 >
                   <PercentInput
+                    id={`rate-${code}`}
                     value={(state.unknownRateOverrides[code] ?? 0) / 100}
                     onChange={(fraction) =>
                       update("unknownRateOverrides", {
@@ -219,6 +223,7 @@ export function DerivedAssumptions({
             />
             <Field
               label="Tax appraised value"
+              htmlFor="appraised-value"
               hint={
                 parcel?.totalValue
                   ? `From the CAD record: ${formatUSD(parcel.totalValue, 0)}. The 10% homestead cap does not protect you until the second year after you buy.`
@@ -226,6 +231,7 @@ export function DerivedAssumptions({
               }
             >
               <CurrencyInput
+                id="appraised-value"
                 value={state.taxAppraisedValueOverride ?? 0}
                 onChange={(value) =>
                   update("taxAppraisedValueOverride", value === 0 ? null : value)
@@ -235,9 +241,11 @@ export function DerivedAssumptions({
             </Field>
             <Field
               label="PID assessment per year"
+              htmlFor="pid-assessment"
               hint="A fixed dollar amount, not reduced by homestead. Leave at zero if none."
             >
               <CurrencyInput
+                id="pid-assessment"
                 value={state.pidAnnualAssessment}
                 onChange={(value) => update("pidAnnualAssessment", value)}
                 max={20_000}
@@ -245,6 +253,7 @@ export function DerivedAssumptions({
             </Field>
             <Field
               label="MUD water bill per month"
+              htmlFor="mud-water"
               hint={
                 parcel?.hasMud
                   ? "Separate from the MUD tax. Typical Fort Bend range is $80–$150."
@@ -252,6 +261,7 @@ export function DerivedAssumptions({
               }
             >
               <CurrencyInput
+                id="mud-water"
                 value={state.monthlyMudUtility}
                 onChange={(value) => update("monthlyMudUtility", value)}
                 max={500}
@@ -262,12 +272,14 @@ export function DerivedAssumptions({
 
         <Disclosure summary="Insurance and flood">
           <div className="space-y-4 pt-1">
-            <Field
-              label="Insurance per $1,000 of dwelling coverage"
-              hint={`Dwelling coverage is modeled at ${Math.round(DWELLING_COVERAGE_FRACTION * 100)}% of price, so ${formatUSD(annualInsurance)} a year. Get a real quote.`}
-            >
-              <NumberInput
-                value={state.insuranceRatePerThousand}
+              <Field
+                label="Insurance per $1,000 of dwelling coverage"
+                htmlFor="insurance-rate"
+                hint={`Dwelling coverage is modeled at ${Math.round(DWELLING_COVERAGE_FRACTION * 100)}% of price, so ${formatUSD(annualInsurance)} a year. Get a real quote.`}
+              >
+                <NumberInput
+                  id="insurance-rate"
+                  value={state.insuranceRatePerThousand}
                 onChange={(value) => update("insuranceRatePerThousand", value)}
                 min={1}
                 max={40}
@@ -289,8 +301,9 @@ export function DerivedAssumptions({
               }
             />
             {state.inFloodZone && (
-              <Field label="Flood insurance per year">
+              <Field label="Flood insurance per year" htmlFor="flood-insurance">
                 <CurrencyInput
+                  id="flood-insurance"
                   value={state.annualFloodInsurance}
                   onChange={(value) => update("annualFloodInsurance", value)}
                   max={20_000}
@@ -303,15 +316,17 @@ export function DerivedAssumptions({
         <Disclosure summary={`The loan · rate defaults to PMMS as of ${PMMS_AS_OF}`}>
           <div className="space-y-4 pt-1">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Interest rate">
+              <Field label="Interest rate" htmlFor="interest-rate">
                 <PercentInput
+                  id="interest-rate"
                   value={state.interestRate}
                   onChange={(fraction) => update("interestRate", fraction)}
                   max={20}
                 />
               </Field>
-              <Field label="Loan term">
+              <Field label="Loan term" htmlFor="loan-term">
                 <Select
+                  id="loan-term"
                   value={String(state.termYears)}
                   onChange={(value) => {
                     const years = Number.parseInt(value, 10);
@@ -333,8 +348,10 @@ export function DerivedAssumptions({
             </div>
             <Field
               label={`Down payment — ${(state.downPaymentFraction * 100).toFixed(1)}% (${formatUSD(state.purchasePrice * state.downPaymentFraction)})`}
+              htmlFor="down-payment"
             >
               <Slider
+                id="down-payment"
                 value={state.downPaymentFraction * 100}
                 onChange={(value) => update("downPaymentFraction", value / 100)}
                 min={0}
@@ -343,23 +360,26 @@ export function DerivedAssumptions({
                 format={(value) => `${value}%`}
               />
             </Field>
-            <Field label="Discount points">
+            <Field label="Discount points" htmlFor="discount-points">
               <NumberInput
+                id="discount-points"
                 value={state.discountPoints}
                 onChange={(value) => update("discountPoints", value)}
                 min={0}
                 max={5}
               />
             </Field>
-            <Field label="Extra principal each month">
+            <Field label="Extra principal each month" htmlFor="extra-principal">
               <CurrencyInput
+                id="extra-principal"
                 value={state.extraMonthlyPrincipal}
                 onChange={(value) => update("extraMonthlyPrincipal", value)}
                 max={20_000}
               />
             </Field>
-            <Field label="Override mortgage insurance rate">
+            <Field label="Override mortgage insurance rate" htmlFor="mi-rate-override">
               <PercentInput
+                id="mi-rate-override"
                 value={state.mortgageInsuranceRateOverride ?? 0}
                 onChange={(fraction) =>
                   update(
@@ -370,8 +390,9 @@ export function DerivedAssumptions({
                 max={3}
               />
             </Field>
-            <Field label="Expected closing date">
+            <Field label="Expected closing date" htmlFor="closing-date">
               <input
+                id="closing-date"
                 type="date"
                 className="text-input"
                 value={state.closingDateIso}
@@ -402,22 +423,25 @@ export function DerivedAssumptions({
                   max={2_000_000}
                 />
               </Field>
-              <Field label="Seller concessions">
+              <Field label="Seller concessions" htmlFor="seller-concessions">
                 <CurrencyInput
+                  id="seller-concessions"
                   value={state.sellerConcessions}
                   onChange={(value) => update("sellerConcessions", value)}
                   max={200_000}
                 />
               </Field>
-              <Field label="Lender credit">
+              <Field label="Lender credit" htmlFor="lender-credit">
                 <CurrencyInput
+                  id="lender-credit"
                   value={state.lenderCredit}
                   onChange={(value) => update("lenderCredit", value)}
                   max={100_000}
                 />
               </Field>
-              <Field label="Gift funds">
+              <Field label="Gift funds" htmlFor="gift-funds">
                 <CurrencyInput
+                  id="gift-funds"
                   value={state.giftFunds}
                   onChange={(value) => update("giftFunds", value)}
                   max={500_000}
@@ -504,8 +528,10 @@ export function DerivedAssumptions({
           <div className="space-y-4 pt-1">
             <Field
               label={`How long you plan to stay — ${state.horizonYears} years`}
+              htmlFor="horizon-years"
             >
               <Slider
+                id="horizon-years"
                 value={state.horizonYears}
                 onChange={(value) => update("horizonYears", value)}
                 min={1}
@@ -515,8 +541,9 @@ export function DerivedAssumptions({
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Home appreciation per year">
+              <Field label="Home appreciation per year" htmlFor="appreciation">
                 <PercentInput
+                  id="appreciation"
                   value={state.annualAppreciationRate}
                   onChange={(fraction) =>
                     update("annualAppreciationRate", fraction)
@@ -525,8 +552,9 @@ export function DerivedAssumptions({
                   decimals={1}
                 />
               </Field>
-              <Field label="Tax and insurance growth per year">
+              <Field label="Tax and insurance growth per year" htmlFor="expense-growth">
                 <PercentInput
+                  id="expense-growth"
                   value={state.annualExpenseGrowthRate}
                   onChange={(fraction) =>
                     update("annualExpenseGrowthRate", fraction)
@@ -538,9 +566,11 @@ export function DerivedAssumptions({
             </div>
             <Field
               label="Area median income (100%)"
+              htmlFor="area-median-income"
               hint={`HomeReady screens against 80% of this (${formatUSD((state.areaMedianIncome ?? 0) * 0.8, 0)}) and USDA against 115% (${formatUSD((state.areaMedianIncome ?? 0) * 1.15, 0)}).`}
             >
               <CurrencyInput
+                id="area-median-income"
                 value={state.areaMedianIncome ?? 0}
                 onChange={(value) =>
                   update("areaMedianIncome", value === 0 ? null : value)
