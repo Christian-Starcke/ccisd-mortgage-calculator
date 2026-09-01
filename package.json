@@ -1,0 +1,32 @@
+{
+  "name": "fbisd-mortgage-calculator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mortgage and affordability calculator tuned for Fort Bend ISD, Texas, including down payment assistance and first-time buyer program modeling.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:tax-units": "node scripts/buildTaxUnitCodes.mjs"
+  },
+  "dependencies": {
+    "next": "^16.3.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.13",
+    "@types/node": "24.5.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "eslint": "9.36.0",
+    "eslint-config-next": "^16.3.4",
+    "tailwindcss": "4.1.13",
+    "typescript": "5.9.2",
+    "vitest": "^4.1.11"
+  }
+}
