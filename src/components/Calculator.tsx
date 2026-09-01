@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { buildCalculatorInputs, buildScenarioOptions } from "@/lib/buildFromState";
 import { calculateAffordability } from "@/lib/affordability";
 import {
@@ -50,8 +50,13 @@ export function Calculator() {
     setState((previous) => ({ ...previous, [key]: value }));
   };
 
+  // Deriving every number is expensive (nine scenarios plus a binary search
+  // for affordability), so it runs on a deferred copy of the state. Inputs
+  // stay responsive while the results catch up a beat later.
+  const deferredState = useDeferredValue(state);
+
   const { ranking, detailScenario, comparisonRows, affordability, savingsActions } =
-    useMemo(() => derive(state), [state]);
+    useMemo(() => derive(deferredState), [deferredState]);
 
   return (
     <div className="mx-auto max-w-[100rem] pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(1.25rem,env(safe-area-inset-top,0px))] sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 xl:pb-24">

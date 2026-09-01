@@ -19,3 +19,4 @@ tsconfig.tsbuildinfo
 .vscode/
 ws.pdf
 .env*
+.playwright-mcp/

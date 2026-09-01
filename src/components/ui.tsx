@@ -203,6 +203,18 @@ export function PercentInput({
   );
 }
 
+/**
+ * Number input with the same draft treatment as the currency and percent
+ * inputs. Without it, typing into a pre-populated field appends to what is
+ * already there ("3" then "4" reads as "34") and the mid-keystroke clamp
+ * rewrites the field to the max, which behaves like the input refusing the
+ * keystroke.
+ *
+ * While editing, the raw text is held and only in-range values are emitted,
+ * so partial input like "7" on the way to "720" is not clamped to the
+ * minimum mid-word. The final value is clamped and committed on blur, and
+ * focus selects the whole value so a click plus typing replaces it.
+ */
 export function NumberInput({
   value,
   onChange,
@@ -216,6 +228,15 @@ export function NumberInput({
   max?: number;
   id?: string;
 }) {
+  const { draft, setDraft, setEmitted } = useNumericDraft(value);
+
+  const display = draft !== null ? draft : String(value);
+
+  const emit = (next: number) => {
+    setEmitted(next);
+    onChange(next);
+  };
+
   return (
     <input
       id={id}
@@ -223,14 +244,29 @@ export function NumberInput({
       className="text-input"
       inputMode="numeric"
       autoComplete="off"
-      value={value}
+      value={display}
       min={min}
       max={max}
+      onFocus={(event) => {
+        setDraft(String(value));
+        event.target.select();
+      }}
       onChange={(event) => {
-        const parsed = Number.parseFloat(event.target.value);
-        onChange(
-          Number.isFinite(parsed) ? Math.min(Math.max(parsed, min), max) : min,
-        );
+        const next = event.target.value;
+        setDraft(next);
+        const parsed = Number.parseFloat(next);
+        if (Number.isFinite(parsed) && parsed >= min && parsed <= max) {
+          emit(parsed);
+        }
+      }}
+      onBlur={() => {
+        if (draft !== null) {
+          const parsed = Number.parseFloat(draft);
+          if (Number.isFinite(parsed)) {
+            emit(Math.min(Math.max(parsed, min), max));
+          }
+        }
+        setDraft(null);
       }}
     />
   );
