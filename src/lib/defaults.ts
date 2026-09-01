@@ -66,6 +66,11 @@ export interface CalculatorState {
   sellerConcessions: number;
   lenderCredit: number;
   giftFunds: number;
+  /**
+   * When true, the detail panel uses programId + selectedAssistanceIds instead
+   * of the auto-ranked answer card. Auto cards still show the engine picks.
+   */
+  manualOverride: boolean;
 
   // --- Assumptions -------------------------------------------------------
   annualAppreciationRate: number;
@@ -92,7 +97,7 @@ export type UpdateState = <K extends keyof CalculatorState>(
  * localStorage key for `usePersistentState`. Bump the suffix when the stored
  * shape cannot be repaired by spreading `DEFAULT_STATE` over the parsed JSON.
  */
-export const STORAGE_KEY = "fbisd-mortgage-calculator-v2";
+export const STORAGE_KEY = "fbisd-mortgage-calculator-v3";
 
 /**
  * Homeowners insurance is written against dwelling coverage, typically about
@@ -184,6 +189,7 @@ export const DEFAULT_STATE: CalculatorState = {
   sellerConcessions: 0,
   lenderCredit: 0,
   giftFunds: 0,
+  manualOverride: false,
 
   annualAppreciationRate: 0.03,
   annualExpenseGrowthRate: 0.04,

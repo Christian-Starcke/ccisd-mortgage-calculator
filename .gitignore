@@ -18,3 +18,4 @@ tsconfig.tsbuildinfo
 .vercel
 .vscode/
 ws.pdf
+.env*

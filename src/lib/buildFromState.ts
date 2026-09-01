@@ -45,7 +45,9 @@ export function buildCalculatorInputs(
 
   return {
     buyer: {
-      annualIncome: state.annualIncome,
+      // DTI and AMI both use household income; annualIncome stays on state for
+      // persistence but is kept in sync from the single household field.
+      annualIncome: state.annualHouseholdIncome,
       annualHouseholdIncome: state.annualHouseholdIncome,
       householdSize: state.householdSize,
       creditScore: state.creditScore,

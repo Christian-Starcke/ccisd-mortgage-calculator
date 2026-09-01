@@ -375,10 +375,7 @@ export function checkEligibility(args: {
       );
     } else {
       const limit = areaMedianIncome * program.incomeLimitAmiFraction;
-      const incomeToTest =
-        program.id === "usda"
-          ? buyer.annualHouseholdIncome
-          : buyer.annualIncome;
+      const incomeToTest = buyer.annualHouseholdIncome;
       if (incomeToTest > limit) {
         reasons.push(
           `Income of ${Math.round(incomeToTest).toLocaleString()} exceeds the program limit of about ${Math.round(limit).toLocaleString()}.`,

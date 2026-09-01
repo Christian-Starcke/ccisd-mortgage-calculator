@@ -94,36 +94,22 @@ export function Essentials({
 
       <Card
         title="You"
-        subtitle="These drive both what you qualify for and which assistance programs you can claim."
+        subtitle="These decide which loan and assistance stack wins — the calculator picks the cheapest path from them."
       >
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Gross annual income"
-              htmlFor="annual-income"
-              hint="Before taxes. Used for debt-to-income."
-            >
-              <CurrencyInput
-                id="annual-income"
-                value={state.annualIncome}
-                onChange={(value) => {
-                  update("annualIncome", value);
-                  if (state.annualHouseholdIncome === state.annualIncome) {
-                    update("annualHouseholdIncome", value);
-                  }
-                }}
-                max={2_000_000}
-              />
-            </Field>
-            <Field
               label="Total household income"
               htmlFor="household-income"
-              hint="Everyone in the home, including adults not on the loan."
+              hint="Everyone in the home, including adults not on the loan. Used for debt-to-income and assistance screening."
             >
               <CurrencyInput
                 id="household-income"
                 value={state.annualHouseholdIncome}
-                onChange={(value) => update("annualHouseholdIncome", value)}
+                onChange={(value) => {
+                  update("annualHouseholdIncome", value);
+                  update("annualIncome", value);
+                }}
                 max={2_000_000}
               />
             </Field>
@@ -155,18 +141,6 @@ export function Essentials({
                 value={state.monthlyDebtPayments}
                 onChange={(value) => update("monthlyDebtPayments", value)}
                 max={50_000}
-              />
-            </Field>
-            <Field
-              label="Cash you can bring to closing"
-              htmlFor="cash-available"
-              hint="Do not include money you need to keep as reserves."
-            >
-              <CurrencyInput
-                id="cash-available"
-                value={state.cashAvailable}
-                onChange={(value) => update("cashAvailable", value)}
-                max={2_000_000}
               />
             </Field>
           </div>

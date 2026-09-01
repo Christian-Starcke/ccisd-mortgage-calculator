@@ -11,6 +11,7 @@ import {
 } from "@/lib/defaults";
 import { LOAN_PROGRAM_ORDER, checkEligibility } from "@/lib/loanPrograms";
 import { formatUSD } from "@/lib/money";
+import { rankPaths } from "@/lib/pathRank";
 import { buildScenario, type ScenarioResult } from "@/lib/scenario";
 import {
   TAX_YEAR,
@@ -18,11 +19,11 @@ import {
   presetCombinedRate,
   LOCATION_PRESETS,
 } from "@/data/fortBendTaxRates";
+import { AnswerCards } from "./AnswerCards";
 import { InputPanel } from "./InputPanel";
 import {
   AssistancePlaybook,
   ProgramComparison,
-  ProgramRecommendation,
   SavingsPlaybook,
   type ProgramComparisonRow,
   type SavingsAction,
@@ -34,7 +35,7 @@ import {
   PaymentSummary,
   TaxBreakdown,
 } from "./Results";
-import { usePersistentState } from "./ui";
+import { Card, Disclosure, usePersistentState } from "./ui";
 
 export function Calculator() {
   const [state, setState] = usePersistentState<CalculatorState>(
@@ -49,10 +50,8 @@ export function Calculator() {
     setState((previous) => ({ ...previous, [key]: value }));
   };
 
-  const { scenario, comparisonRows, affordability, savingsActions } = useMemo(
-    () => derive(state),
-    [state],
-  );
+  const { ranking, detailScenario, comparisonRows, affordability, savingsActions } =
+    useMemo(() => derive(state), [state]);
 
   return (
     <div className="mx-auto max-w-[100rem] pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))] pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] pt-[max(1.25rem,env(safe-area-inset-top,0px))] sm:pl-6 sm:pr-6 lg:pl-8 lg:pr-8 xl:pb-24">
@@ -63,7 +62,7 @@ export function Calculator() {
         Skip to estimate
       </a>
 
-      <Header state={state} scenario={scenario} />
+      <Header state={state} scenario={detailScenario} />
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[24rem_minmax(0,1fr)]">
         <div
@@ -81,30 +80,68 @@ export function Calculator() {
           id="results"
           className="min-w-0 space-y-6 scroll-mt-4 scroll-mb-28"
         >
-          <PaymentSummary scenario={scenario} />
-          <ProgramRecommendation
-            rows={comparisonRows}
-            state={state}
-            selectedId={state.programId}
-            onSelect={(id) => update("programId", id)}
-          />
-          <CashToCloseCard scenario={scenario} />
-          <SavingsPlaybook actions={savingsActions} />
-          <ProgramComparison
-            rows={comparisonRows}
-            selectedId={state.programId}
-            onSelect={(id) => update("programId", id)}
-            state={state}
-          />
-          <AssistancePlaybook scenario={scenario} />
-          <TaxBreakdown scenario={scenario} />
-          <AffordabilityCard affordability={affordability} state={state} />
-          <Milestones scenario={scenario} state={state} />
-          <Sources />
+          <AnswerCards ranking={ranking} state={state} />
+          <PaymentSummary scenario={detailScenario} />
+          <CashToCloseCard scenario={detailScenario} />
+
+          <Card title="More details">
+            <div className="space-y-2">
+              <Disclosure summary="Tax districts on this bill">
+                <div className="pt-2">
+                  <TaxBreakdown scenario={detailScenario} />
+                </div>
+              </Disclosure>
+              <Disclosure summary="Compare every loan program">
+                <div className="pt-2">
+                  <ProgramComparison
+                    rows={comparisonRows}
+                    selectedId={
+                      state.manualOverride
+                        ? state.programId
+                        : detailScenario.program.id
+                    }
+                    onSelect={(id) => {
+                      update("manualOverride", true);
+                      update("programId", id);
+                    }}
+                    state={state}
+                  />
+                </div>
+              </Disclosure>
+              <Disclosure summary="Assistance applied on this path">
+                <div className="pt-2">
+                  <AssistancePlaybook scenario={detailScenario} />
+                </div>
+              </Disclosure>
+              <Disclosure summary="Ways to save more">
+                <div className="pt-2">
+                  <SavingsPlaybook actions={savingsActions} />
+                </div>
+              </Disclosure>
+              <Disclosure summary="How much house you can afford">
+                <div className="pt-2">
+                  <AffordabilityCard
+                    affordability={affordability}
+                    state={state}
+                  />
+                </div>
+              </Disclosure>
+              <Disclosure summary="Cost and equity over time">
+                <div className="pt-2">
+                  <Milestones scenario={detailScenario} state={state} />
+                </div>
+              </Disclosure>
+              <Disclosure summary="Where these numbers come from">
+                <div className="pt-2">
+                  <Sources />
+                </div>
+              </Disclosure>
+            </div>
+          </Card>
         </div>
       </div>
 
-      <MobileSummaryBar scenario={scenario} />
+      <MobileSummaryBar scenario={detailScenario} />
     </div>
   );
 }
@@ -117,6 +154,10 @@ function Header({
   scenario: ScenarioResult;
 }) {
   const preset = findLocationPreset(state.locationId);
+  const monthly =
+    scenario.monthly.totalAfterTaxCredit < scenario.monthly.total
+      ? scenario.monthly.totalAfterTaxCredit
+      : scenario.monthly.total;
 
   return (
     <header className="border-b border-ink-200 pb-5">
@@ -128,14 +169,14 @@ function Header({
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-pretty text-ink-500">
             {state.resolvedParcel && !state.resolvedParcel.isFortBendIsd
               ? `This parcel is billed by ${state.resolvedParcel.schoolName ?? "another school district"}, not Fort Bend ISD. Treat every number here as a warning, not a quote.`
-              : `Built for a first-time buyer in ${preset?.name ?? "Fort Bend County"}, with the actual 2025 tax rates for every district that bills you, and every assistance program worth knowing about.`}
+              : `Built for a first-time buyer in ${preset?.name ?? "Fort Bend County"}. Enter the house and your income — the calculator picks the cheapest loan and assistance stack.`}
           </p>
         </div>
         <div className="hidden xl:flex xl:flex-wrap xl:items-end xl:gap-x-8 xl:gap-y-2 xl:text-sm">
           <div>
             <div className="field-label">Monthly</div>
             <div className="tnum text-lg font-semibold text-ink-900">
-              {formatUSD(scenario.monthly.total)}
+              {formatUSD(monthly)}
             </div>
           </div>
           <div>
@@ -152,11 +193,8 @@ function Header({
 
 function Sources() {
   return (
-    <section className="card p-4 sm:p-6">
-      <h2 className="text-pretty text-base font-semibold tracking-tight text-ink-900">
-        Where these numbers come from
-      </h2>
-      <p className="mt-1 text-sm leading-relaxed text-ink-500">
+    <section>
+      <p className="text-sm leading-relaxed text-ink-500">
         Everything here is traceable. Tax rates are the adopted {TAX_YEAR} rates,
         which are the ones you will actually be billed for a {TAX_YEAR + 1}{" "}
         purchase until the new rates are set each September.
@@ -225,6 +263,11 @@ function Sources() {
 }
 
 function MobileSummaryBar({ scenario }: { scenario: ScenarioResult }) {
+  const monthly =
+    scenario.monthly.totalAfterTaxCredit < scenario.monthly.total
+      ? scenario.monthly.totalAfterTaxCredit
+      : scenario.monthly.total;
+
   return (
     <nav
       aria-label="Key numbers"
@@ -235,7 +278,7 @@ function MobileSummaryBar({ scenario }: { scenario: ScenarioResult }) {
         <a href="#results" className="min-w-0 flex-1">
           <div className="field-label !mb-0">Monthly</div>
           <div className="tnum truncate text-base font-semibold text-ink-900">
-            {formatUSD(scenario.monthly.total)}
+            {formatUSD(monthly)}
           </div>
         </a>
         <a href="#results" className="min-w-0 flex-1">
@@ -255,20 +298,30 @@ function MobileSummaryBar({ scenario }: { scenario: ScenarioResult }) {
   );
 }
 
-/**
- * Runs the engine once for the selected program, once for every other program so
- * they can be compared at the same price, and once as an affordability solve.
- * Nine scenario builds plus a binary search is a few milliseconds, so there is
- * no reason to be clever about caching any of it.
- */
 function derive(state: CalculatorState) {
   const options = buildScenarioOptions(state);
-  const inputs = buildCalculatorInputs(state);
-  const scenario = buildScenario(inputs, options);
+  const ranking = rankPaths(state);
+  const selected = ranking.bestCombined;
+
+  const detailState: CalculatorState = state.manualOverride
+    ? state
+    : selected
+      ? {
+          ...state,
+          programId: selected.programId,
+          selectedAssistanceIds: selected.assistanceIds,
+        }
+      : state;
+
+  const inputs = buildCalculatorInputs(detailState);
+  const detailScenario = buildScenario(inputs, options);
 
   const comparisonRows: ProgramComparisonRow[] = LOAN_PROGRAM_ORDER.map(
     (programId) => {
-      const programInputs = buildCalculatorInputs(state, programId);
+      const programInputs = buildCalculatorInputs(
+        { ...state, selectedAssistanceIds: [] },
+        programId,
+      );
       const programScenario = buildScenario(programInputs, options);
 
       return {
@@ -288,25 +341,18 @@ function derive(state: CalculatorState) {
   const affordability = calculateAffordability(inputs, options);
 
   return {
-    scenario,
+    ranking,
+    detailScenario,
     comparisonRows,
     affordability,
     savingsActions: buildSavingsActions({
-      state,
-      scenario,
+      state: detailState,
+      scenario: detailScenario,
       comparisonRows,
     }),
   };
 }
 
-/**
- * Turns the computed scenarios into a ranked list of concrete moves.
- *
- * The ordering is by dollars saved rather than by ease, because a buyer trying to
- * minimize cost should see the biggest lever first even when it is the hardest
- * one. Every item has to be specific enough to act on: "shop your rate" is
- * useless, "each 0.25% off the rate is $63 a month" is not.
- */
 function buildSavingsActions({
   state,
   scenario,
@@ -319,13 +365,10 @@ function buildSavingsActions({
   const actions: SavingsAction[] = [];
   const horizon = state.horizonYears;
 
-  // --- A cheaper loan program --------------------------------------------
   const eligibleAlternatives = comparisonRows.filter(
     (row) =>
       row.eligibility.status !== "ineligible" &&
-      row.scenario.program.id !== scenario.program.id &&
-      // Only suggest programs that do not demand more cash than they save.
-      row.scenario.cashToClose.netCashDue <= state.cashAvailable,
+      row.scenario.program.id !== scenario.program.id,
   );
 
   const bestAlternative = eligibleAlternatives.reduce<
@@ -368,7 +411,6 @@ function buildSavingsActions({
     });
   }
 
-  // --- Unclaimed assistance ----------------------------------------------
   const acceptedIds = new Set(
     scenario.assistance.accepted.map((ev) => ev.program.id),
   );
@@ -406,7 +448,6 @@ function buildSavingsActions({
     });
   }
 
-  // --- Homestead exemption ------------------------------------------------
   if (!state.claimHomestead) {
     const withoutExemption =
       scenario.propertyTax.appraisedValue *
@@ -421,7 +462,6 @@ function buildSavingsActions({
     });
   }
 
-  // --- Seller concessions -------------------------------------------------
   const concessionHeadroom =
     scenario.maxSellerConcessionAllowed - scenario.usableSellerConcessions;
   const closingCostsPayableBySeller = Math.min(
@@ -431,36 +471,33 @@ function buildSavingsActions({
   if (closingCostsPayableBySeller > 1_000) {
     actions.push({
       title: "Ask the seller to pay your closing costs",
-      detail: `${scenario.program.shortName} lets the seller contribute up to ${formatUSD(scenario.maxSellerConcessionAllowed)} on this purchase, and you are currently using ${formatUSD(scenario.usableSellerConcessions)}. In a market with inventory, offering full price with ${formatUSD(closingCostsPayableBySeller)} in seller-paid costs usually nets the seller the same money while cutting your cash at closing dollar for dollar. This is the single most reliable way to reduce what you bring to the table.`,
+      detail: `${scenario.program.shortName} lets the seller contribute up to ${formatUSD(scenario.maxSellerConcessionAllowed)} on this purchase, and you are currently using ${formatUSD(scenario.usableSellerConcessions)}. In a market with inventory, offering full price with ${formatUSD(closingCostsPayableBySeller)} in seller-paid costs usually nets the seller the same money while cutting your cash at closing dollar for dollar.`,
       value: closingCostsPayableBySeller,
       effort: "negotiate",
     });
   }
 
-  // --- Tax protest --------------------------------------------------------
   if (scenario.propertyTax.annualTax > 0) {
     const protestSaving = scenario.propertyTax.annualTax * 0.07;
     actions.push({
       title: "Protest your appraised value every single year",
-      detail: `Fort Bend appraisals are formula-driven and routinely high. A protest is free, can be filed online through the appraisal district, and a 7% reduction is a common outcome with basic comparable sales. On your bill that is about ${formatUSD(protestSaving)} a year, compounding as values rise. The deadline is May 15 or 30 days after your notice, whichever is later.`,
+      detail: `Fort Bend appraisals are formula-driven and routinely high. A protest is free, can be filed online through the appraisal district, and a 7% reduction is a common outcome with basic comparable sales. On your bill that is about ${formatUSD(protestSaving)} a year.`,
       value: protestSaving * horizon,
       valueLabel: `${formatUSD(protestSaving)}/yr`,
       effort: "paperwork",
     });
   }
 
-  // --- Rate shopping ------------------------------------------------------
   const rateShoppingSaving = estimateRateShoppingSaving(scenario);
   if (rateShoppingSaving.monthly > 5) {
     actions.push({
       title: "Get quotes from at least three lenders in the same week",
-      detail: `A 0.25% lower rate on this loan is ${formatUSD(rateShoppingSaving.monthly)} a month and ${formatUSD(rateShoppingSaving.overHorizon)} over ${horizon} years. Credit bureaus treat all mortgage inquiries inside a 45-day window as one, so shopping does not hurt your score. Ask each lender for a Loan Estimate rather than a verbal quote, and compare page two line by line, because the rate is only half the cost.`,
+      detail: `A 0.25% lower rate on this loan is ${formatUSD(rateShoppingSaving.monthly)} a month and ${formatUSD(rateShoppingSaving.overHorizon)} over ${horizon} years.`,
       value: rateShoppingSaving.overHorizon,
       effort: "call",
     });
   }
 
-  // --- Insurance shopping -------------------------------------------------
   const insuranceSaving =
     estimateHomeownersInsurance(
       state.purchasePrice,
@@ -469,24 +506,22 @@ function buildSavingsActions({
   if (insuranceSaving > 100) {
     actions.push({
       title: "Shop homeowners insurance before you lock, not after",
-      detail: `Houston-area premiums vary by more than 50% between carriers for identical coverage, and your lender will escrow whatever you pick. Trimming 25% off the default assumption here is ${formatUSD(insuranceSaving)} a year and ${formatUSD(insuranceSaving / 12)} a month of qualifying room. Get quotes before your rate lock so the number in your escrow is real.`,
+      detail: `Houston-area premiums vary by more than 50% between carriers for identical coverage. Trimming 25% off the default assumption here is ${formatUSD(insuranceSaving)} a year.`,
       value: insuranceSaving * horizon,
       valueLabel: `${formatUSD(insuranceSaving)}/yr`,
       effort: "call",
     });
   }
 
-  // --- Debt paydown -------------------------------------------------------
   if (!scenario.dti.withinGuidelines && state.monthlyDebtPayments > 0) {
     actions.push({
       title: "Pay off or pay down your smallest monthly obligation",
-      detail: `Your back-end debt-to-income is ${(scenario.dti.backEnd * 100).toFixed(1)}% against a ${(scenario.dti.guidelineMax * 100).toFixed(0)}% ceiling. Underwriting looks at the minimum monthly payment, not the balance, so retiring a small loan with a big payment helps far more than shaving a large balance. Every $100 of monthly payment you eliminate buys roughly $15,000 to $18,000 of purchase price.`,
+      detail: `Your back-end debt-to-income is ${(scenario.dti.backEnd * 100).toFixed(1)}% against a ${(scenario.dti.guidelineMax * 100).toFixed(0)}% ceiling. Underwriting looks at the minimum monthly payment, not the balance.`,
       value: null,
       effort: "decision",
     });
   }
 
-  // --- MUD district awareness --------------------------------------------
   const mudUnit = scenario.propertyTax.lineItems.find((row) =>
     /MUD|LID|utility/i.test(row.unit.name),
   );
@@ -501,8 +536,8 @@ function buildSavingsActions({
       title: "Know what the MUD is costing you before you fall in love",
       detail: `${mudUnit.unit.name} adds ${formatUSD(mudUnit.annualTax)} a year to this house, which is ${formatUSD(mudUnit.annualTax / 12)} a month of payment that buys you no equity. ${
         rateDelta > 0.001
-          ? `Two otherwise identical houses in different districts here can differ by ${formatUSD(state.purchasePrice * rateDelta)} a year in tax. Check the district on every listing before you tour it.`
-          : "MUD rates typically decline as district debt is retired, so ask for the district's current debt service schedule."
+          ? `Two otherwise identical houses in different districts here can differ by ${formatUSD(state.purchasePrice * rateDelta)} a year in tax.`
+          : "MUD rates typically decline as district debt is retired."
       }`,
       value: mudUnit.annualTax * horizon,
       valueLabel: `${formatUSD(mudUnit.annualTax)}/yr`,
@@ -510,7 +545,6 @@ function buildSavingsActions({
     });
   }
 
-  // --- PMI removal --------------------------------------------------------
   if (
     scenario.pmiRequestMonth != null &&
     scenario.pmiAutomaticMonth != null &&
@@ -522,7 +556,7 @@ function buildSavingsActions({
     if (saving > 200) {
       actions.push({
         title: "Put a calendar reminder to cancel PMI",
-        detail: `Your PMI is ${formatUSD(scenario.monthly.mortgageInsurance)} a month and it does not fall off by itself until month ${scenario.pmiAutomaticMonth}. You can request removal in writing at month ${scenario.pmiRequestMonth}, when you hit 80% loan-to-value. Requesting instead of waiting saves ${formatUSD(saving)}. If values rise, paying for an appraisal to prove 80% gets you there sooner and almost always pays for itself.`,
+        detail: `Your PMI is ${formatUSD(scenario.monthly.mortgageInsurance)} a month and it does not fall off by itself until month ${scenario.pmiAutomaticMonth}. You can request removal in writing at month ${scenario.pmiRequestMonth}.`,
         value: saving,
         effort: "call",
       });
@@ -547,7 +581,8 @@ function estimateRateShoppingSaving(scenario: ScenarioResult): {
     return (totalLoanAmount * monthlyRate * growth) / (growth - 1);
   };
 
-  const monthly = payment(interestRate) - payment(Math.max(0, interestRate - 0.0025));
+  const monthly =
+    payment(interestRate) - payment(Math.max(0, interestRate - 0.0025));
 
   return {
     monthly,
