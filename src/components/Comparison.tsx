@@ -84,6 +84,7 @@ export function ProgramRecommendation({
   const sameTotal =
     cheapestTotal?.scenario.program.id === recommended.scenario.program.id;
   const cashShort =
+    state.cashAvailable > 0 &&
     recommended.scenario.cashToClose.netCashDue > state.cashAvailable;
 
   return (

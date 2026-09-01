@@ -1,6 +1,7 @@
 "use client";
 
 import { ASSISTANCE_PROGRAMS } from "@/data/assistancePrograms";
+import { findLocationPreset } from "@/data/fortBendTaxRates";
 import type { CalculatorState } from "@/lib/defaults";
 import { formatUSD } from "@/lib/money";
 import type { PathRanking, RankedPath } from "@/lib/pathRank";
@@ -97,6 +98,18 @@ export function AnswerCards({
         </div>
       </div>
       <CashNote path={bestCombined} cashAvailable={state.cashAvailable} />
+
+      {!state.resolvedParcel && state.addressQuery.trim().length > 0 && (
+        <div className="mt-4">
+          <Callout tone="warn" title="These taxes are a location guess">
+            Pick the matching parcel from the address search. Until you do, the
+            monthly payment and cash to close use the{" "}
+            {findLocationPreset(state.locationId).name} preset instead of this
+            house’s actual tax districts — and that can change which assistance
+            program wins.
+          </Callout>
+        </div>
+      )}
 
       {showExtremes && (monthlyIsDifferent || cashIsDifferent) && (
         <div className="mt-4 space-y-1 text-xs leading-relaxed text-ink-500">

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { FORT_BEND_TAX_UNIT_CODES } from "@/data/fortBendTaxUnitCodes";
 import { DEFAULT_STATE } from "@/lib/defaults";
-import { buildCalculatorInputs } from "@/lib/buildFromState";
+import { buildCalculatorInputs, buildScenarioOptions } from "@/lib/buildFromState";
+import { buildScenario } from "@/lib/scenario";
 import { buildSitusWhere, parseAddressQuery } from "@/lib/lookups/addressParse";
 import {
   inferLocationId,
@@ -166,6 +167,100 @@ describe("generated tax unit table", () => {
         /carmen turner/i.test(record.name),
       ),
     ).toBe(false);
+  });
+});
+
+describe("parcel vs location-preset tax bill", () => {
+  it("does not silently reuse Sugar Land city tax for a Rosharon parcel", () => {
+    const parcel: ResolvedParcel = {
+      objectId: 1,
+      situs: "954 LUKE DARRELL DR 77583",
+      taxUnitCodes: ["D01", "G01", "R52", "S07"],
+      taxingUnits: [],
+      missingRateCodes: [],
+      totalValue: 275_000,
+      landValue: 40_000,
+      improvementValue: 235_000,
+      yearBuilt: 2019,
+      livingSqFt: 1_800,
+      sellerExemptions: "HS",
+      centroid: { lon: -95.42, lat: 29.44 },
+      usdaEligible: true,
+      flood: { zone: "X", inSpecialFloodHazardArea: false },
+      isFortBendIsd: true,
+      schoolCode: "S07",
+      schoolName: "Fort Bend ISD",
+      inferredLocationId: "rosharon-fbisd",
+      hasMud: true,
+      lookupAt: "2026-09-01T00:00:00.000Z",
+    };
+
+    const typedAddressOnly = buildCalculatorInputs({
+      ...DEFAULT_STATE,
+      purchasePrice: 275_000,
+      addressQuery: "954 Luke Darrell DR, Rosharon, TX 77583",
+      resolvedParcel: null,
+      locationId: "sugar-land",
+      monthlyMudUtility: 0,
+      cashAvailable: 0,
+    });
+    const pickedParcel = buildCalculatorInputs({
+      ...DEFAULT_STATE,
+      purchasePrice: 275_000,
+      addressQuery: parcel.situs,
+      resolvedParcel: parcel,
+      locationId: parcel.inferredLocationId,
+      taxAppraisedValueOverride: parcel.totalValue,
+      monthlyMudUtility: 110,
+      usdaAddressConfirmed: true,
+    });
+
+    expect(
+      typedAddressOnly.property.taxingUnits.some(
+        (unit) => unit.id === "city-sugar-land",
+      ),
+    ).toBe(true);
+    expect(
+      pickedParcel.property.taxingUnits.some(
+        (unit) => unit.id === "city-sugar-land",
+      ),
+    ).toBe(false);
+    expect(pickedParcel.property.monthlyMudUtility).toBe(110);
+    expect(typedAddressOnly.property.monthlyMudUtility).toBe(0);
+  });
+});
+
+describe("cash-on-hand shortfall warning", () => {
+  it("does not treat a blank cash budget as money you are short", () => {
+    const state = {
+      ...DEFAULT_STATE,
+      purchasePrice: 275_000,
+      cashAvailable: 0,
+    };
+    const scenario = buildScenario(
+      buildCalculatorInputs(state),
+      buildScenarioOptions(state),
+    );
+    expect(scenario.cashToClose.shortfall).toBeGreaterThan(0);
+    expect(
+      scenario.warnings.some((warning) => /short of the cash/i.test(warning)),
+    ).toBe(false);
+  });
+
+  it("still warns when cash on hand is entered and is not enough", () => {
+    const state = {
+      ...DEFAULT_STATE,
+      purchasePrice: 275_000,
+      cashAvailable: 1_000,
+    };
+    const scenario = buildScenario(
+      buildCalculatorInputs(state),
+      buildScenarioOptions(state),
+    );
+    expect(scenario.cashToClose.shortfall).toBeGreaterThan(0);
+    expect(
+      scenario.warnings.some((warning) => /short of the cash/i.test(warning)),
+    ).toBe(true);
   });
 });
 

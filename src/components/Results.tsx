@@ -26,7 +26,13 @@ function monthsToYearsMonths(months: number): string {
   return `${years}y ${remainder}m`;
 }
 
-export function PaymentSummary({ scenario }: { scenario: ScenarioResult }) {
+export function PaymentSummary({
+  scenario,
+  cashAvailable = 0,
+}: {
+  scenario: ScenarioResult;
+  cashAvailable?: number;
+}) {
   const { monthly } = scenario;
 
   const segments = (
@@ -63,11 +69,17 @@ export function PaymentSummary({ scenario }: { scenario: ScenarioResult }) {
           <Stat
             label="Cash to close"
             value={formatUSD(scenario.cashToClose.netCashDue)}
-            tone={scenario.cashToClose.shortfall > 0 ? "bad" : "good"}
+            tone={
+              cashAvailable > 0 && scenario.cashToClose.shortfall > 0
+                ? "bad"
+                : "good"
+            }
             sub={
-              scenario.cashToClose.shortfall > 0
-                ? `${formatUSD(scenario.cashToClose.shortfall)} more than you have`
-                : `${formatUSD(scenario.cashToClose.cashRemaining)} left over`
+              cashAvailable > 0
+                ? scenario.cashToClose.shortfall > 0
+                  ? `${formatUSD(scenario.cashToClose.shortfall)} more than you have`
+                  : `${formatUSD(scenario.cashToClose.cashRemaining)} left over`
+                : undefined
             }
           />
           <Stat
@@ -142,7 +154,13 @@ export function PaymentSummary({ scenario }: { scenario: ScenarioResult }) {
   );
 }
 
-export function CashToCloseCard({ scenario }: { scenario: ScenarioResult }) {
+export function CashToCloseCard({
+  scenario,
+  cashAvailable = 0,
+}: {
+  scenario: ScenarioResult;
+  cashAvailable?: number;
+}) {
   const { cashToClose, closingCosts } = scenario;
 
   return (
@@ -210,7 +228,9 @@ export function CashToCloseCard({ scenario }: { scenario: ScenarioResult }) {
           label="Cash you actually bring"
           amount={formatUSD(cashToClose.netCashDue)}
           emphasis
-          tone={cashToClose.shortfall > 0 ? "bad" : "neutral"}
+          tone={
+            cashAvailable > 0 && cashToClose.shortfall > 0 ? "bad" : "neutral"
+          }
         />
       </div>
 

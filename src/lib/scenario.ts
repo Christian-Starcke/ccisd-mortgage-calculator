@@ -466,7 +466,7 @@ export function buildScenario(
     shortfall: roundCents(Math.max(0, netCashDue - buyer.cashAvailable)),
   };
 
-  if (cashToClose.shortfall > 0) {
+  if (buyer.cashAvailable > 0 && cashToClose.shortfall > 0) {
     warnings.push(
       `You are about $${cashToClose.shortfall.toLocaleString()} short of the cash needed at closing.`,
     );

@@ -10,6 +10,19 @@ import { formatUSD } from "@/lib/money";
 import type { AddressCandidate, ResolvedParcel } from "@/lib/lookups/types";
 import { Badge, Callout, Field, TextInput } from "./ui";
 
+function clearParcelSelection(update: UpdateState) {
+  update("resolvedParcel", null);
+  update("lookupStatus", "idle");
+  update("lookupError", null);
+  update("usdaAddressConfirmed", null);
+  update("taxAppraisedValueOverride", null);
+  update("monthlyMudUtility", 0);
+  update("unknownRateOverrides", {});
+  update("inFloodZone", false);
+  update("annualFloodInsurance", 0);
+  update("isNewConstruction", false);
+}
+
 function applyParcel(parcel: ResolvedParcel, update: UpdateState, state: CalculatorState) {
   update("resolvedParcel", parcel);
   update("lookupStatus", parcel.isFortBendIsd ? "resolved" : "outside-fbisd");
@@ -20,6 +33,8 @@ function applyParcel(parcel: ResolvedParcel, update: UpdateState, state: Calcula
 
   if (parcel.totalValue && parcel.totalValue > 0) {
     update("taxAppraisedValueOverride", parcel.totalValue);
+  } else {
+    update("taxAppraisedValueOverride", null);
   }
 
   if (parcel.flood) {
@@ -27,19 +42,28 @@ function applyParcel(parcel: ResolvedParcel, update: UpdateState, state: Calcula
     if (parcel.flood.inSpecialFloodHazardArea && state.annualFloodInsurance === 0) {
       update("annualFloodInsurance", 1_200);
     }
+    if (!parcel.flood.inSpecialFloodHazardArea) {
+      update("annualFloodInsurance", 0);
+    }
+  } else {
+    update("inFloodZone", false);
+    update("annualFloodInsurance", 0);
   }
 
-  if (parcel.hasMud && state.monthlyMudUtility === 0) {
-    update("monthlyMudUtility", DEFAULT_MUD_UTILITY_MONTHLY);
+  if (parcel.hasMud) {
+    if (state.monthlyMudUtility === 0) {
+      update("monthlyMudUtility", DEFAULT_MUD_UTILITY_MONTHLY);
+    }
+  } else {
+    update("monthlyMudUtility", 0);
   }
 
   const year = new Date().getFullYear();
-  if (
+  update(
+    "isNewConstruction",
     (parcel.yearBuilt != null && parcel.yearBuilt >= year - 1) ||
-    (parcel.improvementValue === 0 && (parcel.landValue ?? 0) > 0)
-  ) {
-    update("isNewConstruction", true);
-  }
+      (parcel.improvementValue === 0 && (parcel.landValue ?? 0) > 0),
+  );
 }
 
 export function AddressLookup({
@@ -116,10 +140,7 @@ export function AddressLookup({
   };
 
   const clear = () => {
-    update("resolvedParcel", null);
-    update("lookupStatus", "idle");
-    update("lookupError", null);
-    update("usdaAddressConfirmed", null);
+    clearParcelSelection(update);
     setCandidates([]);
   };
 
@@ -141,8 +162,7 @@ export function AddressLookup({
             update("addressQuery", value);
             setCandidates([]);
             if (state.resolvedParcel) {
-              update("resolvedParcel", null);
-              update("lookupStatus", "idle");
+              clearParcelSelection(update);
             }
           }}
         />
@@ -172,6 +192,10 @@ export function AddressLookup({
 
       {candidates.length > 0 && state.lookupStatus === "awaiting-pick" && (
         <div className="space-y-2 rounded-lg border border-ink-200 bg-white p-2">
+          <Callout tone="warn" title="Typing the address is not enough">
+            Choose the matching CAD parcel. Until you do, the payment uses a
+            location preset instead of this house’s tax districts.
+          </Callout>
           <p className="px-2 pt-1 text-xs font-medium uppercase tracking-wide text-ink-500">
             Pick the matching parcel
           </p>

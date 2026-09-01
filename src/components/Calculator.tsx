@@ -81,8 +81,14 @@ export function Calculator() {
           className="min-w-0 space-y-6 scroll-mt-4 scroll-mb-28"
         >
           <AnswerCards ranking={ranking} state={state} />
-          <PaymentSummary scenario={detailScenario} />
-          <CashToCloseCard scenario={detailScenario} />
+          <PaymentSummary
+            scenario={detailScenario}
+            cashAvailable={state.cashAvailable}
+          />
+          <CashToCloseCard
+            scenario={detailScenario}
+            cashAvailable={state.cashAvailable}
+          />
 
           <Card title="More details">
             <div className="space-y-2">
