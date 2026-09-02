@@ -3,9 +3,13 @@
  * Truth-in-Taxation table.
  *
  * Harris publishes every jurisdiction's adopted rate keyed by the same numeric
- * code HCAD records on a parcel, so this is the direct analogue of Fort Bend's
- * rate portal. The table is server-rendered in one page with five years per
- * unit, which is why this needs no pagination and no per-unit fetches.
+ * code HCAD records on a parcel, which is what makes the join possible at all.
+ * The table is server-rendered in one page with five years per unit, so this
+ * needs no pagination and no per-unit fetches.
+ *
+ * Galveston needs no equivalent script: it publishes its whole county — codes,
+ * rates and exemptions together — in one PDF, so that side is hand-maintained
+ * in src/data/galvestonTaxUnitCodes.ts.
  *
  * Homestead exemptions are NOT on that table. They come from
  * src/data/generated/harrisFootprint.json, which is derived from HCAD's annual

@@ -7,6 +7,7 @@ import {
   findLocationPreset,
   resolveAlternateDistrictUnits,
   resolveTaxingUnits,
+  utilityDistrictsForLocation,
 } from "@/data/clearCreekTaxRates";
 import { requireUnit } from "@/lib/lookups/resolveCodes";
 
@@ -205,7 +206,24 @@ describe("resolveTaxingUnits", () => {
     }
   });
 
-  it("never offers one county's utility district for the other's location", () => {
+  it("offers only the districts a location's own county can bill", () => {
+    const harris = utilityDistrictsForLocation("webster");
+    const galveston = utilityDistrictsForLocation("league-city");
+
+    // "No utility district" is on both lists; nothing else is shared.
+    expect(harris.some((u) => u.id === "none")).toBe(true);
+    expect(galveston.some((u) => u.id === "none")).toBe(true);
+    expect(harris.some((u) => u.county === "galveston")).toBe(false);
+    expect(galveston.some((u) => u.county === "harris")).toBe(false);
+
+    // Both lists are real, so this is not passing by being empty.
+    expect(harris.length).toBeGreaterThan(3);
+    expect(galveston.length).toBeGreaterThan(3);
+    expect(harris.some((u) => u.code === "142")).toBe(true);
+    expect(galveston.some((u) => u.code === "M36")).toBe(true);
+  });
+
+  it("never bills one county's utility district on the other's location", () => {
     // A Harris preset cannot be billed by a Galveston MUD, so asking for one
     // must not quietly attach it.
     const units = resolveTaxingUnits("webster", "galveston-m36", null);

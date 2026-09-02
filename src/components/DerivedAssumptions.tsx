@@ -2,10 +2,10 @@
 
 import {
   LOCATION_PRESETS,
-  UTILITY_DISTRICTS,
   findLocationPreset,
   resolveAlternateDistrictUnits,
   resolveTaxingUnits,
+  utilityDistrictsForLocation,
 } from "@/data/clearCreekTaxRates";
 import {
   DWELLING_COVERAGE_FRACTION,
@@ -127,6 +127,22 @@ export function DerivedAssumptions({
                   const next = findLocationPreset(value);
                   update("utilityDistrictId", next.defaultUtilityDistrictId);
                   update("manualUtilityRatePer100", null);
+                  // Location carries the county and the city, so it decides
+                  // wind exposure — and with it both insurance rates. Leaving
+                  // a League City windstorm premium on a Webster address
+                  // would overstate the payment by about $200 a month.
+                  update(
+                    "separateWindstormPolicy",
+                    next.windExposure !== "inland",
+                  );
+                  update(
+                    "windstormUncertain",
+                    next.windExposure === "boundary-uncertain",
+                  );
+                  update(
+                    "insuranceRatePerThousand",
+                    HOMEOWNERS_RATE_PER_THOUSAND[next.windExposure],
+                  );
                 }}
                 options={LOCATION_PRESETS.map((option) => ({
                   value: option.id,
@@ -170,7 +186,7 @@ export function DerivedAssumptions({
                       update("utilityDistrictId", value);
                       update("manualUtilityRatePer100", null);
                     }}
-                    options={UTILITY_DISTRICTS.map((unit) => ({
+                    options={utilityDistrictsForLocation(state.locationId).map((unit) => ({
                       value: unit.id,
                       label:
                         unit.ratePer100 === 0
