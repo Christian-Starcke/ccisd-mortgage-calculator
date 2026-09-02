@@ -1,4 +1,5 @@
 import type { TaxingUnit } from "./propertyTax";
+import type { WindExposure } from "./windstorm";
 
 export type LoanProgramId =
   | "conv-97"
@@ -54,7 +55,7 @@ export interface PropertyProfile {
    * lower, and a protest can move it.
    */
   taxAppraisedValue: number;
-  /** Selected Fort Bend location preset id. */
+  /** Selected Clear Creek ISD location preset id. */
   locationId: string;
   /** Taxing units that apply, resolved from the location. */
   taxingUnits: TaxingUnit[];
@@ -64,6 +65,17 @@ export interface PropertyProfile {
   hoaEstimated: boolean;
   annualHomeownersInsurance: number;
   annualFloodInsurance: number;
+  /**
+   * Separate windstorm and hail policy, required inside the catastrophe area
+   * designated by the Texas Department of Insurance. Zero outside it, where
+   * wind stays on the homeowners policy.
+   *
+   * This is the line that separates the two halves of the district: every
+   * Galveston County address needs it and almost no Harris County one does.
+   */
+  annualWindstormInsurance: number;
+  /** Wind exposure the premiums above were priced at. */
+  windExposure: WindExposure;
   /** True when the address is inside a FEMA Special Flood Hazard Area. */
   inFloodZone: boolean;
   isNewConstruction: boolean;
@@ -74,7 +86,9 @@ export interface PropertyProfile {
   pidAnnualAssessment: number;
   /**
    * Monthly water/sewer bill charged by a MUD, separate from the MUD tax.
-   * Typical Fort Bend range is $80–$150.
+   * Typical range in this district is $60–$120. It applies to fewer homes than
+   * it would elsewhere in the Houston area, because most of Clear Creek ISD
+   * sits inside a city and is on city water rather than a district system.
    */
   monthlyMudUtility: number;
 }
@@ -126,6 +140,8 @@ export interface MonthlyPaymentBreakdown
   propertyTax: number;
   homeownersInsurance: number;
   floodInsurance: number;
+  /** Separate windstorm policy, zero outside the designated area. */
+  windstormInsurance: number;
   mortgageInsurance: number;
   hoa: number;
   /** MUD water and sewer bill, separate from the MUD property tax. */

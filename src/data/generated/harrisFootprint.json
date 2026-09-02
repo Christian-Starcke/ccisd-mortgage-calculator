@@ -1,0 +1,287 @@
+{
+  "vintage": "HCAD PDATA 2026 certified",
+  "ccisdCode": "027",
+  "accountsInFootprint": 50241,
+  "codes": {
+    "120": {
+      "name": "WEST RANCH MGMT DIST",
+      "accounts": 1,
+      "share": 0.00002,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "124": {
+      "name": "BAYBROOK MUD 1",
+      "accounts": 122,
+      "share": 0.00243,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "142": {
+      "name": "CLEAR LAKE CITY WA",
+      "accounts": 18936,
+      "share": 0.3769,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "248": {
+      "name": "HC MUD 481",
+      "accounts": 698,
+      "share": 0.01389,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "253": {
+      "name": "BRAZORIA COUNTY MUD 18",
+      "accounts": 1069,
+      "share": 0.02128,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "277": {
+      "name": "WEBSTER RE-INV ZONE 1",
+      "accounts": 2,
+      "share": 0.00004,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "278": {
+      "name": "CITY OF NASSAU BAY TIRZ 1 (073)",
+      "accounts": 135,
+      "share": 0.00269,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.01
+    },
+    "298": {
+      "name": "WEBSTER RE-INV ZONE 1 (040)",
+      "accounts": 2,
+      "share": 0.00004,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "313": {
+      "name": "CLEAR BROOK CITY MUD",
+      "accounts": 3388,
+      "share": 0.06743,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "351": {
+      "name": "HC WCID 161",
+      "accounts": 874,
+      "share": 0.0174,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.1
+    },
+    "355": {
+      "name": "HC MUD 55",
+      "accounts": 4491,
+      "share": 0.08939,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "400": {
+      "name": "HC RID 1",
+      "accounts": 682,
+      "share": 0.01357,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "510": {
+      "name": "HC MUD 373",
+      "accounts": 399,
+      "share": 0.00794,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.02
+    },
+    "604": {
+      "name": "HC WCID 50",
+      "accounts": 1254,
+      "share": 0.02496,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.001
+    },
+    "616": {
+      "name": "HC WCID 156",
+      "accounts": 410,
+      "share": 0.00816,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "001": {
+      "name": "HOUSTON ISD",
+      "accounts": 0,
+      "share": 0,
+      "homesteadFlat": 140000,
+      "homesteadPct": 0.2
+    },
+    "002": {
+      "name": "DEER PARK ISD",
+      "accounts": 5,
+      "share": 0.0001,
+      "homesteadFlat": 140000,
+      "homesteadPct": 0.2
+    },
+    "020": {
+      "name": "LA PORTE ISD",
+      "accounts": 9,
+      "share": 0.00018,
+      "homesteadFlat": 140000,
+      "homesteadPct": 0.2
+    },
+    "021": {
+      "name": "PASADENA ISD",
+      "accounts": 246,
+      "share": 0.0049,
+      "homesteadFlat": 140000,
+      "homesteadPct": 0.1
+    },
+    "027": {
+      "name": "CLEAR CREEK ISD",
+      "accounts": 50241,
+      "share": 1,
+      "homesteadFlat": 140000,
+      "homesteadPct": 0.05
+    },
+    "029": {
+      "name": "PEARLAND ISD",
+      "accounts": 0,
+      "share": 0,
+      "homesteadFlat": 140000,
+      "homesteadPct": 0
+    },
+    "040": {
+      "name": "HARRIS COUNTY",
+      "accounts": 50241,
+      "share": 1,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "041": {
+      "name": "HARRIS CO FLOOD CNTRL",
+      "accounts": 50241,
+      "share": 1,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "042": {
+      "name": "PORT OF HOUSTON AUTHY",
+      "accounts": 50241,
+      "share": 1,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "043": {
+      "name": "HARRIS CO HOSP DIST",
+      "accounts": 50241,
+      "share": 1,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "044": {
+      "name": "HARRIS CO EDUC DEPT",
+      "accounts": 50241,
+      "share": 1,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "047": {
+      "name": "SAN JACINTO COM COL D",
+      "accounts": 3019,
+      "share": 0.06009,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.08
+    },
+    "056": {
+      "name": "CITY OF EL LAGO",
+      "accounts": 1164,
+      "share": 0.02317,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.08
+    },
+    "058": {
+      "name": "CITY OF FRIENDSWOOD",
+      "accounts": 3908,
+      "share": 0.07779,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "059": {
+      "name": "CITY OF PEARLAND",
+      "accounts": 1088,
+      "share": 0.02166,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.025
+    },
+    "061": {
+      "name": "CITY OF HOUSTON",
+      "accounts": 20157,
+      "share": 0.40121,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "067": {
+      "name": "CITY OF LEAGUE CITY",
+      "accounts": 630,
+      "share": 0.01254,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "073": {
+      "name": "CITY OF NASSAU BAY",
+      "accounts": 1634,
+      "share": 0.03252,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.01
+    },
+    "074": {
+      "name": "CITY OF PASADENA",
+      "accounts": 3015,
+      "share": 0.06001,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.15
+    },
+    "076": {
+      "name": "CITY OF SEABROOK",
+      "accounts": 5667,
+      "share": 0.1128,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "082": {
+      "name": "TAYLOR LAKE VILLAGE",
+      "accounts": 1557,
+      "share": 0.03099,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "084": {
+      "name": "CITY OF WEBSTER",
+      "accounts": 2972,
+      "share": 0.05915,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "A04": {
+      "name": "WESTWOOD MGMT DISTRICT",
+      "accounts": 2,
+      "share": 0.00004,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    },
+    "A43": {
+      "name": "TIRZ 1 CITY OF FRIENDSWOOD (058)",
+      "accounts": 6,
+      "share": 0.00012,
+      "homesteadFlat": 0,
+      "homesteadPct": 0.2
+    },
+    "A76": {
+      "name": "HC MUD 568",
+      "accounts": 3,
+      "share": 0.00006,
+      "homesteadFlat": 0,
+      "homesteadPct": 0
+    }
+  }
+}

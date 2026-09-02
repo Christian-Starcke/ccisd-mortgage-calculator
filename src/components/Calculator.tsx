@@ -27,7 +27,7 @@ import {
   findLocationPreset,
   presetCombinedRate,
   LOCATION_PRESETS,
-} from "@/data/fortBendTaxRates";
+} from "@/data/clearCreekTaxRates";
 import { ASSISTANCE_PROGRAMS } from "@/data/assistancePrograms";
 import type { LoanProgramId } from "@/lib/types";
 import { AnswerCards } from "./AnswerCards";
@@ -205,12 +205,12 @@ function Header({ state }: { state: CalculatorState }) {
     <header className="border-b border-ink-200 pb-5">
       <div className="min-w-0">
         <h1 className="text-pretty text-lg font-semibold tracking-tight text-ink-900 sm:text-2xl">
-          Fort Bend ISD mortgage &amp; affordability calculator
+          Clear Creek ISD mortgage &amp; affordability calculator
         </h1>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-pretty text-ink-500">
-          {state.resolvedParcel && !state.resolvedParcel.isFortBendIsd
-            ? `This parcel is billed by ${state.resolvedParcel.schoolName ?? "another school district"}, not Fort Bend ISD. Treat every number here as a warning, not a quote.`
-            : `Built for a first-time buyer in ${preset?.name ?? "Fort Bend County"}. Enter the house and your income — the calculator picks the cheapest loan and assistance stack.`}
+          {state.resolvedParcel && !state.resolvedParcel.isClearCreekIsd
+            ? `This parcel is billed by ${state.resolvedParcel.schoolNames[0] ?? "another school district"}, not Clear Creek ISD. Treat every number here as a warning, not a quote.`
+            : `Built for a first-time buyer in ${preset?.name ?? "Clear Creek ISD"}. Enter the house and your income — the calculator picks the cheapest loan and assistance stack.`}
         </p>
       </div>
     </header>
@@ -228,20 +228,32 @@ function Sources() {
       <ul className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
         {[
           [
-            "Fort Bend County adopted tax rates",
-            "https://www.fortbendcountytx.gov/government/departments/financial-administration/county-auditor/tax-rates",
+            "Harris County Truth-in-Taxation rates by jurisdiction",
+            "https://www.hctax.net/Property/JurisdictionTaxRates",
           ],
           [
-            "Fort Bend County Truth-in-Taxation rate portal",
-            "https://taxrateinfo.fortbendcountytx.gov/",
+            "Galveston County 2025 tax rates and exemptions",
+            "https://galvestoncad.org/wp-content/uploads/2025/11/2025_Galveston_Tax_Rates.pdf",
           ],
           [
-            "Fort Bend Central Appraisal District (exemptions, protests)",
-            "https://www.fbcad.org/",
+            "Harris Central Appraisal District (exemptions, protests)",
+            "https://hcad.org/",
           ],
           [
-            "Fort Bend ISD tax office",
-            "https://www.fortbendisd.com/departments/business-and-finance/tax-office",
+            "Galveston Central Appraisal District",
+            "https://galvestoncad.org/",
+          ],
+          [
+            "Clear Creek ISD tax office and homestead exemptions",
+            "https://www.ccisd.net/tax/homestead-exemptions",
+          ],
+          [
+            "Clear Creek ISD school finder (which district an address is in)",
+            "https://www.ccisd.net/district-map",
+          ],
+          [
+            "Texas Windstorm Insurance Association coverage and eligibility",
+            "https://www.twia.org/coverage-eligibility/",
           ],
           [
             "FHFA 2026 conforming loan limits",
@@ -581,7 +593,7 @@ function buildSavingsActions({
     const saving = withoutExemption - scenario.propertyTax.annualTax;
     actions.push({
       title: "File your homestead exemption",
-      detail: `You are not claiming it. Filing with the Fort Bend Central Appraisal District is free, takes one form, and cuts your tax bill permanently. It also caps your appraised value increases at 10% a year, which matters more than the exemption itself over time.`,
+      detail: `You are not claiming it. Filing with your appraisal district — Harris or Galveston, whichever appraises the parcel — is free, takes one form, and cuts your tax bill permanently. It also caps your appraised value increases at 10% a year, which matters more than the exemption itself over time.`,
       value: saving * horizon,
       valueLabel: `${formatUSD(saving)}/yr`,
       effort: "paperwork",
@@ -607,7 +619,7 @@ function buildSavingsActions({
     const protestSaving = scenario.propertyTax.annualTax * 0.07;
     actions.push({
       title: "Protest your appraised value every single year",
-      detail: `Fort Bend appraisals are formula-driven and routinely high. A protest is free, can be filed online through the appraisal district, and a 7% reduction is a common outcome with basic comparable sales. On your bill that is about ${formatUSD(protestSaving)} a year.`,
+      detail: `Appraisals in both counties are formula-driven and routinely high. A protest is free, can be filed online through the appraisal district, and a 7% reduction is a common outcome with basic comparable sales. On your bill that is about ${formatUSD(protestSaving)} a year.`,
       value: protestSaving * horizon,
       valueLabel: `${formatUSD(protestSaving)}/yr`,
       effort: "paperwork",

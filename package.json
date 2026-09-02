@@ -1,8 +1,8 @@
 {
-  "name": "fbisd-mortgage-calculator",
+  "name": "ccisd-mortgage-calculator",
   "version": "0.1.0",
   "private": true,
-  "description": "Mortgage and affordability calculator tuned for Fort Bend ISD, Texas, including down payment assistance and first-time buyer program modeling.",
+  "description": "Mortgage and affordability calculator tuned for Clear Creek ISD, Texas, covering the Harris and Galveston taxing units it spans, coastal windstorm and flood costs, and down payment assistance and first-time buyer program modeling.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:tax-units": "node scripts/buildTaxUnitCodes.mjs"
+    "build:footprint": "node scripts/buildCcisdFootprint.mjs",
+    "build:harris-units": "node scripts/buildHarrisTaxUnits.mjs",
+    "ingest:parcels": "node scripts/ingestParcels.mjs"
   },
   "dependencies": {
     "next": "^16.3.4",

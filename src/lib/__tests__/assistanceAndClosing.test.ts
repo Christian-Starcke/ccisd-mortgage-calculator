@@ -46,10 +46,10 @@ describe("homeowners insurance default", () => {
 });
 
 describe("2026 assistance facts", () => {
-  it("models Houston HAP, Fort Bend HFC, TDHCA and TSAHC at the refreshed figures", () => {
+  it("models Houston HAP, Harris County DAP, TDHCA and TSAHC at the refreshed figures", () => {
     const houston = ASSISTANCE_PROGRAMS.find((p) => p.id === "houston-hap")!;
     const county = ASSISTANCE_PROGRAMS.find(
-      (p) => p.id === "fort-bend-county-dpa",
+      (p) => p.id === "harris-county-dap",
     )!;
     const tdhca = ASSISTANCE_PROGRAMS.find(
       (p) => p.id === "tdhca-my-first-texas-home",
@@ -60,7 +60,7 @@ describe("2026 assistance facts", () => {
     const seth = ASSISTANCE_PROGRAMS.find((p) => p.id === "seth-5-star")!;
 
     expect(houston.benefitValue).toBe(75_000);
-    expect(county.benefitValue).toBe(10_000);
+    expect(county.benefitValue).toBe(23_800);
     expect(tdhca.eligibility.maxHouseholdIncome).toBe(101_100);
     expect(tdhca.eligibility.maxHouseholdIncomeHouseholdsOf3OrMore).toBe(116_265);
     expect(tdhca.eligibility.maxPurchasePrice).toBe(544_232);
@@ -69,5 +69,38 @@ describe("2026 assistance facts", () => {
     expect(
       ASSISTANCE_PROGRAMS.some((program) => /wells fargo/i.test(program.name)),
     ).toBe(false);
+  });
+
+  it("scopes local programmes to the government that actually administers them", () => {
+    const houston = ASSISTANCE_PROGRAMS.find((p) => p.id === "houston-hap")!;
+    const harris = ASSISTANCE_PROGRAMS.find((p) => p.id === "harris-county-dap")!;
+
+    // Houston's award is city-limits only.
+    expect(houston.eligibility.eligibleLocationIds).toEqual([
+      "houston-clear-lake",
+    ]);
+
+    // The county programme reaches Harris County outside Houston, and none of
+    // the Galveston County side of the district.
+    const harrisIds = harris.eligibility.eligibleLocationIds!;
+    expect(harrisIds).toContain("webster");
+    expect(harrisIds).not.toContain("houston-clear-lake");
+    for (const galveston of [
+      "league-city",
+      "kemah",
+      "clear-lake-shores",
+      "unincorporated-galveston",
+    ]) {
+      expect(harrisIds).not.toContain(galveston);
+    }
+  });
+
+  it("carries no unscoped local programme that would leak across the county line", () => {
+    for (const program of ASSISTANCE_PROGRAMS) {
+      if (!/city of|county/i.test(program.administrator)) continue;
+      // A local government programme with no location scope would be offered
+      // on every address in the district, including the other county's.
+      expect(program.eligibility.eligibleLocationIds).not.toBeNull();
+    }
   });
 });

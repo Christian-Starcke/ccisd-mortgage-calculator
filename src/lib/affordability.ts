@@ -171,7 +171,7 @@ export function calculateAffordability(
 
   if (!aboveCheck.programLimitOk) {
     bindingConstraint = "loan-program-limit";
-    explanation = `You are capped by the ${best.program.shortName} loan limit for Fort Bend County, not by your income or cash. A different loan program would let you go higher.`;
+    explanation = `You are capped by the ${best.program.shortName} loan limit for the Houston metro area, not by your income or cash. A different loan program would let you go higher.`;
   } else if (!aboveCheck.cashOk) {
     bindingConstraint = "cash-to-close";
     explanation =

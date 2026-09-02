@@ -1,30 +1,36 @@
 /**
- * Loan limits applicable to Fort Bend County, Texas for calendar year 2026.
+ * Loan limits applicable to Clear Creek ISD for calendar year 2026.
  *
- * These are hard ceilings: a loan amount above the limit is simply not eligible
- * for that program, so the calculator uses them to disqualify options rather
- * than quietly producing an impossible scenario.
+ * One set covers the whole district. Harris and Galveston counties are both in
+ * the Houston-Pasadena-The Woodlands metropolitan statistical area, and FHA
+ * publishes its limits by MSA rather than by county, so the ceiling does not
+ * move when an address crosses the county line inside this district. Every
+ * other number in this calculator does.
+ *
+ * These are hard ceilings: a loan amount above the limit is simply not
+ * eligible for that program, so the calculator uses them to disqualify options
+ * rather than quietly producing an impossible scenario.
  */
 
 export interface LoanLimitSet {
   taxYear: number;
   /** Fannie Mae / Freddie Mac one-unit baseline. */
   conforming: number;
-  /** FHA one-unit limit for Fort Bend County. */
+  /** FHA one-unit limit for the Houston MSA, which is at the national floor. */
   fha: number;
   /** VA has no loan limit for borrowers with full entitlement. */
   vaFullEntitlement: number | null;
   /**
-   * USDA Guaranteed Rural Housing has no statutory loan limit; qualification is
-   * driven by income and repayment ability. This figure is the published area
-   * loan limit used by the USDA Direct (Section 502) program and is kept for
-   * reference only.
+   * USDA Guaranteed Rural Housing has no statutory loan limit; qualification
+   * is driven by income and repayment ability. This figure is the published
+   * area loan limit used by the USDA Direct (Section 502) program and is kept
+   * for reference only. No part of Clear Creek ISD is USDA-eligible.
    */
   usdaDirectAreaLimit: number;
   sources: { label: string; url: string }[];
 }
 
-export const FORT_BEND_LOAN_LIMITS_2026: LoanLimitSet = {
+export const HOUSTON_MSA_LOAN_LIMITS_2026: LoanLimitSet = {
   taxYear: 2026,
   conforming: 832_750,
   fha: 541_287,

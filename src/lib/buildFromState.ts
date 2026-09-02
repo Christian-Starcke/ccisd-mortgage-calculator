@@ -2,12 +2,14 @@ import { ASSISTANCE_PROGRAMS } from "@/data/assistancePrograms";
 import {
   resolveTaxingUnits,
   typicalHoaForLocation,
-} from "@/data/fortBendTaxRates";
+} from "@/data/clearCreekTaxRates";
 import { resolveUnitsFromCodes } from "@/lib/lookups/resolveCodes";
 import {
+  DWELLING_COVERAGE_FRACTION,
   estimateHomeownersInsurance,
   type CalculatorState,
 } from "./defaults";
+import { estimateWindstormPremium } from "./windstorm";
 import { LOAN_PROGRAMS } from "./loanPrograms";
 import type { ScenarioOptions } from "./scenario";
 import type { CalculatorInputs, LoanProgramId } from "./types";
@@ -23,9 +25,15 @@ export function buildCalculatorInputs(
   programId: LoanProgramId = state.programId,
 ): CalculatorInputs {
   const parcel = state.resolvedParcel;
+  // The county has to travel with the codes: `S16` and `027` are both Clear
+  // Creek ISD, and `M45` means one district in Galveston and nothing in Harris.
   const fromCodes =
     parcel && parcel.taxUnitCodes.length > 0
-      ? resolveUnitsFromCodes(parcel.taxUnitCodes, state.unknownRateOverrides)
+      ? resolveUnitsFromCodes(
+          parcel.ref.county,
+          parcel.taxUnitCodes,
+          state.unknownRateOverrides,
+        )
       : null;
 
   const taxingUnits =
@@ -79,6 +87,18 @@ export function buildCalculatorInputs(
         state.insuranceRatePerThousand,
       ),
       annualFloodInsurance: state.inFloodZone ? state.annualFloodInsurance : 0,
+      annualWindstormInsurance: state.separateWindstormPolicy
+        ? estimateWindstormPremium({
+            purchasePrice: state.purchasePrice,
+            dwellingCoverageFraction: DWELLING_COVERAGE_FRACTION,
+            ratePerThousand: state.windstormRatePerThousand,
+          })
+        : 0,
+      windExposure: state.separateWindstormPolicy
+        ? state.windstormUncertain
+          ? "boundary-uncertain"
+          : "designated"
+        : "inland",
       inFloodZone: state.inFloodZone,
       isNewConstruction: state.isNewConstruction,
       pidAnnualAssessment: state.pidAnnualAssessment,

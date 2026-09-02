@@ -10,6 +10,7 @@ const PAYMENT_COLORS = {
   principalAndInterest: "#1f6349",
   propertyTax: "#b8791a",
   homeownersInsurance: "#479a76",
+  windstormInsurance: "#3d8fb0",
   floodInsurance: "#74bb9a",
   mortgageInsurance: "#c0392b",
   hoa: "#7a7a73",
@@ -40,10 +41,11 @@ export function PaymentSummary({
       ["Principal & interest", monthly.principalAndInterest, PAYMENT_COLORS.principalAndInterest],
       ["Property tax", monthly.propertyTax, PAYMENT_COLORS.propertyTax],
       ["Homeowners insurance", monthly.homeownersInsurance, PAYMENT_COLORS.homeownersInsurance],
+      ["Windstorm insurance", monthly.windstormInsurance, PAYMENT_COLORS.windstormInsurance],
       ["Flood insurance", monthly.floodInsurance, PAYMENT_COLORS.floodInsurance],
       ["Mortgage insurance", monthly.mortgageInsurance, PAYMENT_COLORS.mortgageInsurance],
       ["HOA dues", monthly.hoa, PAYMENT_COLORS.hoa],
-      ["MUD water bill", monthly.mudUtility, PAYMENT_COLORS.mudUtility],
+      ["Utility district water bill", monthly.mudUtility, PAYMENT_COLORS.mudUtility],
       ["PID assessment", monthly.pidAssessment, PAYMENT_COLORS.pidAssessment],
       ["Assistance second lien", monthly.assistanceSecondLien, PAYMENT_COLORS.assistanceSecondLien],
     ] as [string, number, string][]
@@ -286,7 +288,7 @@ export function TaxBreakdown({ scenario }: { scenario: ScenarioResult }) {
   return (
     <Card
       title="Property tax, unit by unit"
-      subtitle="Fort Bend County bills you separately for each district, and each one grants its own homestead exemption. This is where the money actually goes."
+      subtitle="Each taxing unit bills you separately and each grants its own homestead exemption. Harris County bills six units before any city; Galveston bills three. This is where the money actually goes."
     >
       <div className="mb-5 grid grid-cols-2 gap-4 sm:flex sm:flex-wrap sm:gap-6">
         <Stat

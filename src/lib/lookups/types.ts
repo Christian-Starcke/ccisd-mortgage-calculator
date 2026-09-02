@@ -1,12 +1,54 @@
-import type { TaxingUnit } from "@/lib/propertyTax";
+import type { County, TaxUnitCodeRecord, TaxingUnit } from "@/lib/propertyTax";
+
+/**
+ * A parcel identifier that says which appraisal district issued it.
+ *
+ * Clear Creek ISD spans two appraisal districts that number parcels
+ * differently — Harris uses a 13-digit account number, Galveston a dashed
+ * GEOID — and the two are resolved by completely different paths, so the
+ * county always travels with the id. A bare parcel number is ambiguous here.
+ */
+export interface ParcelRef {
+  county: County;
+  id: string;
+}
+
+export function encodeParcelRef(ref: ParcelRef): string {
+  return `${ref.county}:${ref.id}`;
+}
+
+export function decodeParcelRef(raw: string): ParcelRef | null {
+  const at = raw.indexOf(":");
+  if (at <= 0) return null;
+  const county = raw.slice(0, at);
+  const id = raw.slice(at + 1).trim();
+  if (!id) return null;
+  if (county !== "harris" && county !== "galveston") return null;
+  return { county, id };
+}
 
 export interface AddressCandidate {
-  objectId: number;
+  ref: ParcelRef;
   situs: string;
   taxUnitCodes: string[];
   totalValue: number | null;
   yearBuilt: number | null;
   livingSqFt: number | null;
+  /**
+   * How current the record behind this candidate is. Harris is queried live;
+   * Galveston is an annual snapshot, and saying so is the honest thing to put
+   * next to a candidate a buyer is about to pick.
+   */
+  vintage: string;
+  /**
+   * False when the parcel exists but Clear Creek ISD does not bill it. These
+   * are still shown, and labelled: a buyer who typed a Friendswood or south
+   * League City address and is about to find out it is Friendswood ISD or
+   * Dickinson ISD needs to see that, not an empty result.
+   */
+  inDistrict: boolean;
+  /** The school district billing the parcel, when it is not Clear Creek. */
+  schoolName: string | null;
 }
 
 export interface FloodLookup {
@@ -15,11 +57,14 @@ export interface FloodLookup {
 }
 
 export interface ResolvedParcel {
-  objectId: number;
+  ref: ParcelRef;
   situs: string;
   taxUnitCodes: string[];
   taxingUnits: TaxingUnit[];
-  missingRateCodes: string[];
+  /** Units on the parcel with no published rate. Asked for, never zeroed. */
+  missingRateCodes: TaxUnitCodeRecord[];
+  /** Overlay zones seen on the parcel and deliberately not billed. */
+  nonLevyingCodes: TaxUnitCodeRecord[];
   totalValue: number | null;
   landValue: number | null;
   improvementValue: number | null;
@@ -29,11 +74,16 @@ export interface ResolvedParcel {
   centroid: { lon: number; lat: number } | null;
   usdaEligible: boolean | null;
   flood: FloodLookup | null;
-  isFortBendIsd: boolean;
-  schoolCode: string | null;
-  schoolName: string | null;
+  isClearCreekIsd: boolean;
+  schoolCodes: string[];
+  schoolNames: string[];
+  /** True when the appraisal record splits the parcel across school districts. */
+  splitBetweenSchoolDistricts: boolean;
   inferredLocationId: string;
-  hasMud: boolean;
+  hasUtilityDistrict: boolean;
+  /** True when this address sits in the TWIA windstorm catastrophe area. */
+  inWindstormArea: boolean;
+  vintage: string;
   lookupAt: string;
 }
 
@@ -43,5 +93,5 @@ export type LookupStatus =
   | "awaiting-pick"
   | "looking-up"
   | "resolved"
-  | "outside-fbisd"
+  | "outside-ccisd"
   | "error";

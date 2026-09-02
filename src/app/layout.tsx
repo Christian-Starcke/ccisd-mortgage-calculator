@@ -2,12 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fort Bend ISD Mortgage & Affordability Calculator",
+  title: "Clear Creek ISD Mortgage & Affordability Calculator",
   description:
-    "Model a home purchase in Fort Bend ISD with real local tax rates, MUD districts, and every first-time buyer assistance program that lowers your cost.",
+    "Model a home purchase in Clear Creek ISD with the real taxing units from both appraisal districts it spans, coastal windstorm and flood costs, and every first-time buyer assistance program that lowers your cost.",
   appleWebApp: {
     capable: true,
-    title: "FBISD Mortgage Calc",
+    title: "CCISD Mortgage Calc",
   },
 };
 

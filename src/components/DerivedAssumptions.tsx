@@ -6,8 +6,7 @@ import {
   findLocationPreset,
   resolveAlternateDistrictUnits,
   resolveTaxingUnits,
-} from "@/data/fortBendTaxRates";
-import { FORT_BEND_TAX_UNIT_CODES } from "@/data/fortBendTaxUnitCodes";
+} from "@/data/clearCreekTaxRates";
 import {
   DWELLING_COVERAGE_FRACTION,
   estimateHomeownersInsurance,
@@ -19,6 +18,11 @@ import {
 } from "@/lib/defaults";
 import { formatUSD } from "@/lib/money";
 import { calculatePropertyTax } from "@/lib/propertyTax";
+import {
+  assessWindExposure,
+  estimateWindstormPremium,
+  HOMEOWNERS_RATE_PER_THOUSAND,
+} from "@/lib/windstorm";
 import {
   Callout,
   Card,
@@ -76,6 +80,22 @@ export function DerivedAssumptions({
   const parcel = state.resolvedParcel;
   const usedLookup = parcel != null;
   const missingCodes = parcel?.missingRateCodes ?? [];
+  // Exposure comes from the parcel when there is one, and from the location
+  // preset otherwise, so the hint text is right before an address is typed.
+  const windstorm = parcel
+    ? assessWindExposure({
+        county: parcel.ref.county,
+        taxUnitCodes: parcel.taxUnitCodes,
+      })
+    : {
+        separatePolicyRequired: preset.windExposure !== "inland",
+        verifyByAddress: preset.windExposure === "boundary-uncertain",
+      };
+  const annualWindstorm = estimateWindstormPremium({
+    purchasePrice: state.purchasePrice,
+    dwellingCoverageFraction: DWELLING_COVERAGE_FRACTION,
+    ratePerThousand: state.windstormRatePerThousand,
+  });
 
   return (
     <Card
@@ -95,7 +115,7 @@ export function DerivedAssumptions({
               </Callout>
             )}
             <Field
-              label="Where in Fort Bend ISD"
+              label="Where in Clear Creek ISD"
               htmlFor="location"
               hint={usedLookup ? `Inferred from the parcel as ${preset.name}.` : preset.note}
             >
@@ -131,7 +151,7 @@ export function DerivedAssumptions({
                   rel="noreferrer"
                   className="mt-2 inline-block text-xs font-medium underline underline-offset-2"
                 >
-                  Check the Fort Bend ISD attendance map
+                  Check the CCISD school finder
                 </a>
               </Callout>
             )}
@@ -180,12 +200,12 @@ export function DerivedAssumptions({
               </>
             )}
 
-            {missingCodes.map((code) => {
-              const record = FORT_BEND_TAX_UNIT_CODES[code];
+            {missingCodes.map((record) => {
+              const code = record.code;
               return (
                 <Field
                   key={code}
-                  label={`${record?.name ?? code} rate per $100`}
+                  label={`${record.name} rate per $100`}
                   htmlFor={`rate-${code}`}
                   hint="Private collector — enter the rate from the appraisal record."
                 >
@@ -209,7 +229,7 @@ export function DerivedAssumptions({
               checked={state.claimHomestead}
               onChange={(checked) => update("claimHomestead", checked)}
               label="I will file for the homestead exemption"
-              hint="File it. It is free and in Fort Bend ISD it is worth thousands a year."
+              hint="File it. It is free and in Clear Creek ISD it is worth thousands a year."
             />
             <Toggle
               checked={state.isNewConstruction}
@@ -248,11 +268,11 @@ export function DerivedAssumptions({
               />
             </Field>
             <Field
-              label="MUD water bill per month"
+              label="Utility district water bill per month"
               htmlFor="mud-water"
               hint={
-                parcel?.hasMud
-                  ? "Separate from the MUD tax. Typical Fort Bend range is $80–$150."
+                parcel?.hasUtilityDistrict
+                  ? "Separate from the district's property tax. Typical range here is $60–$120."
                   : "Only applies if the parcel sits in a utility district."
               }
             >
@@ -281,6 +301,43 @@ export function DerivedAssumptions({
                 max={40}
               />
             </Field>
+            <Toggle
+              checked={state.separateWindstormPolicy}
+              onChange={(checked) => {
+                update("separateWindstormPolicy", checked);
+                // The homeowners rate moves with it: inside the designated
+                // area the policy excludes wind, so it is a cheaper policy.
+                // Leaving the all-perils rate on top of a windstorm premium
+                // would charge for the same peril twice.
+                update(
+                  "insuranceRatePerThousand",
+                  HOMEOWNERS_RATE_PER_THOUSAND[checked ? "designated" : "inland"],
+                );
+              }}
+              label="Separate windstorm policy required"
+              hint={
+                state.windstormUncertain
+                  ? "This city is only partly inside the designated catastrophe area — it applies east of Highway 146. Assumed on, which is the conservative reading. Turn it off if your address is west of 146."
+                  : windstorm.separatePolicyRequired
+                    ? "Galveston County is entirely inside the designated catastrophe area, so wind and hail come off the homeowners policy and are written separately."
+                    : "Outside the designated area, so wind stays on the homeowners policy. The policy still carries a named-storm deductible."
+              }
+            />
+            {state.separateWindstormPolicy && (
+              <Field
+                label="Windstorm premium per $1,000 of dwelling coverage"
+                htmlFor="windstorm-rate"
+                hint={`About ${formatUSD(annualWindstorm, 0)} a year at this price. TWIA averaged roughly $2,300–$2,400 in Galveston County. Get a real quote.`}
+              >
+                <CurrencyInput
+                  id="windstorm-rate"
+                  value={state.windstormRatePerThousand}
+                  onChange={(value) => update("windstormRatePerThousand", value)}
+                  max={40}
+                />
+              </Field>
+            )}
+
             <Toggle
               checked={state.inFloodZone}
               onChange={(checked) => {

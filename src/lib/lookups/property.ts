@@ -1,61 +1,158 @@
-import { getParcel, parseTaxUnitCodes } from "./fbcad";
 import { lookupFloodZone } from "./fema";
+import { formatSitus, getHarrisParcel, HARRIS_VINTAGE } from "./hcad";
+import { getParcelRow } from "./parcelStore";
 import { inferLocationId, resolveUnitsFromCodes } from "./resolveCodes";
-import type { ResolvedParcel } from "./types";
+import type { ParcelRef, ResolvedParcel } from "./types";
 import { lookupUsdaEligibility } from "./usda";
+import { assessWindExposure } from "@/lib/windstorm";
 
+/**
+ * Resolves one picked parcel into everything the engine needs.
+ *
+ * The two counties diverge in where the pieces come from and converge on the
+ * same `ResolvedParcel`:
+ *
+ *   Harris     address, values and geometry live from HCAD; taxing units from
+ *              the stored footprint. Both are required, because HCAD's parcel
+ *              layer has no units and the stored row has no address.
+ *
+ *   Galveston  everything from the stored GCAD drop. There is no live service
+ *              to call, so there is no geometry either, which means no USDA or
+ *              flood point lookup on that side. Reported, not guessed.
+ */
 export async function lookupProperty(
-  objectId: number,
+  ref: ParcelRef,
   rateOverrides: Record<string, number> = {},
 ): Promise<{ ok: true; parcel: ResolvedParcel } | { ok: false; error: string }> {
-  const parcelResult = await getParcel(objectId);
-  if (!parcelResult.ok) return parcelResult;
+  return ref.county === "harris"
+    ? lookupHarris(ref, rateOverrides)
+    : lookupGalveston(ref, rateOverrides);
+}
 
-  const { feature, centroid } = parcelResult;
-  const attrs = feature.attributes;
-  const situs = attrs.situs?.trim() ?? "";
-  const taxUnitCodes = parseTaxUnitCodes(attrs.taxunits);
-  const resolved = resolveUnitsFromCodes(taxUnitCodes, rateOverrides);
+async function lookupHarris(
+  ref: ParcelRef,
+  rateOverrides: Record<string, number>,
+): Promise<{ ok: true; parcel: ResolvedParcel } | { ok: false; error: string }> {
+  const [live, stored] = await Promise.all([
+    getHarrisParcel(ref.id),
+    getParcelRow("harris", ref.id),
+  ]);
+  if (!live.ok) return live;
+  if (!stored.ok) return stored;
 
-  let usdaEligible: boolean | null = null;
-  let flood: ResolvedParcel["flood"] = null;
+  const attrs = live.feature.attributes;
+  const situs = formatSitus(attrs);
+  const codes = stored.row?.entity_codes ?? [];
+  const resolved = resolveUnitsFromCodes("harris", codes, rateOverrides);
 
-  if (centroid) {
-    const [usda, fema] = await Promise.all([
-      lookupUsdaEligibility(centroid.lon, centroid.lat),
-      lookupFloodZone(centroid.lon, centroid.lat),
-    ]);
-    if (usda.ok) usdaEligible = usda.eligible;
-    if (fema.ok) flood = fema.flood;
-  }
+  const geo = await lookupGeography(live.centroid);
 
   return {
     ok: true,
     parcel: {
-      objectId: attrs.objectid,
+      ref,
       situs,
-      taxUnitCodes,
+      taxUnitCodes: codes,
       taxingUnits: resolved.units,
-      missingRateCodes: resolved.missingRateCodes.map((record) => record.code),
-      totalValue: attrs.totalvalue,
-      landValue: attrs.landvalue,
-      improvementValue: attrs.impvalue,
-      yearBuilt: attrs.yearbuilt,
-      livingSqFt: attrs.totsqftlvg,
-      sellerExemptions: attrs.exemptions,
-      centroid,
-      usdaEligible,
-      flood,
-      isFortBendIsd: resolved.isFortBendIsd,
-      schoolCode: resolved.schoolCode,
-      schoolName: resolved.schoolName,
+      missingRateCodes: resolved.missingRateCodes,
+      nonLevyingCodes: resolved.nonLevyingCodes,
+      totalValue: attrs.total_appraised_val,
+      landValue: attrs.land_value,
+      improvementValue: attrs.bld_value,
+      // HCAD's parcel layer publishes neither year built nor living area.
+      yearBuilt: null,
+      livingSqFt: null,
+      // Nor exemptions, so the "the seller's homestead does not transfer"
+      // warning cannot be driven off the record on this side of the line.
+      sellerExemptions: null,
+      centroid: live.centroid,
+      ...geo,
+      isClearCreekIsd: resolved.isClearCreekIsd,
+      schoolCodes: resolved.schoolCodes,
+      schoolNames: resolved.schoolNames,
+      splitBetweenSchoolDistricts: resolved.schoolCodes.length > 1,
       inferredLocationId: inferLocationId({
-        codes: taxUnitCodes,
+        county: "harris",
+        codes,
         situs,
-        hasMud: resolved.hasMud,
+        hasUtilityDistrict: resolved.hasUtilityDistrict,
       }),
-      hasMud: resolved.hasMud,
+      hasUtilityDistrict: resolved.hasUtilityDistrict,
+      inWindstormArea:
+        assessWindExposure({ county: "harris", taxUnitCodes: codes })
+          .separatePolicyRequired,
+      vintage: stored.row
+        ? `${HARRIS_VINTAGE}; taxing units from ${stored.row.source_vintage}`
+        : HARRIS_VINTAGE,
       lookupAt: new Date().toISOString(),
     },
+  };
+}
+
+async function lookupGalveston(
+  ref: ParcelRef,
+  rateOverrides: Record<string, number>,
+): Promise<{ ok: true; parcel: ResolvedParcel } | { ok: false; error: string }> {
+  const stored = await getParcelRow("galveston", ref.id);
+  if (!stored.ok) return stored;
+  const row = stored.row;
+  if (!row) {
+    return { ok: false, error: "Parcel not found in the Galveston County drop." };
+  }
+
+  const codes = row.entity_codes;
+  const resolved = resolveUnitsFromCodes("galveston", codes, rateOverrides);
+  const situs = row.situs ?? "";
+
+  return {
+    ok: true,
+    parcel: {
+      ref,
+      situs,
+      taxUnitCodes: codes,
+      taxingUnits: resolved.units,
+      missingRateCodes: resolved.missingRateCodes,
+      nonLevyingCodes: resolved.nonLevyingCodes,
+      totalValue: row.total_value,
+      landValue: row.land_value,
+      improvementValue: row.improvement_value,
+      yearBuilt: null,
+      livingSqFt: null,
+      sellerExemptions: row.exemption_codes,
+      // GCAD's data-only drop carries no geometry, so there is no point to
+      // test against the USDA or FEMA layers. Both come back unknown rather
+      // than defaulting to a convenient answer.
+      centroid: null,
+      usdaEligible: null,
+      flood: null,
+      isClearCreekIsd: resolved.isClearCreekIsd,
+      schoolCodes: resolved.schoolCodes,
+      schoolNames: resolved.schoolNames,
+      splitBetweenSchoolDistricts: resolved.schoolCodes.length > 1,
+      inferredLocationId: inferLocationId({
+        county: "galveston",
+        codes,
+        situs,
+        hasUtilityDistrict: resolved.hasUtilityDistrict,
+      }),
+      hasUtilityDistrict: resolved.hasUtilityDistrict,
+      inWindstormArea: true,
+      vintage: row.source_vintage,
+      lookupAt: new Date().toISOString(),
+    },
+  };
+}
+
+async function lookupGeography(
+  centroid: { lon: number; lat: number } | null,
+): Promise<Pick<ResolvedParcel, "usdaEligible" | "flood">> {
+  if (!centroid) return { usdaEligible: null, flood: null };
+  const [usda, fema] = await Promise.all([
+    lookupUsdaEligibility(centroid.lon, centroid.lat),
+    lookupFloodZone(centroid.lon, centroid.lat),
+  ]);
+  return {
+    usdaEligible: usda.ok ? usda.eligible : null,
+    flood: fema.ok ? fema.flood : null,
   };
 }

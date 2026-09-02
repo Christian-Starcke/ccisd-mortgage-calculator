@@ -33,7 +33,7 @@ import {
   type AssistanceEvaluation,
   type AssistanceProgram,
 } from "./assistance";
-import { FORT_BEND_LOAN_LIMITS_2026 } from "@/data/loanLimits";
+import { HOUSTON_MSA_LOAN_LIMITS_2026 } from "@/data/loanLimits";
 import type {
   CalculatorInputs,
   CashToCloseBreakdown,
@@ -182,7 +182,7 @@ export function buildScenario(
     baseLoanAmount > program.maxLoanAmount
   ) {
     warnings.push(
-      `A ${(downPaymentFraction * 100).toFixed(1)}% down payment on this price needs a $${baseLoanAmount.toLocaleString()} loan, above the ${program.shortName} limit of $${program.maxLoanAmount.toLocaleString()} for Fort Bend County.`,
+      `A ${(downPaymentFraction * 100).toFixed(1)}% down payment on this price needs a $${baseLoanAmount.toLocaleString()} loan, above the ${program.shortName} limit of $${program.maxLoanAmount.toLocaleString()} for the Houston metro area.`,
     );
   }
 
@@ -213,7 +213,7 @@ export function buildScenario(
         fhaAnnualMipRate({
           baseLoanAmount,
           ltv: baseLtv,
-          conformingThreshold: FORT_BEND_LOAN_LIMITS_2026.conforming,
+          conformingThreshold: HOUSTON_MSA_LOAN_LIMITS_2026.conforming,
         });
       mortgageInsuranceRule = fhaMipRule({ annualRate, originalLtv: baseLtv });
       if (baseLtv > 0.9) {
@@ -252,6 +252,9 @@ export function buildScenario(
     property.annualHomeownersInsurance / 12,
   );
   const monthlyFloodInsurance = roundCents(property.annualFloodInsurance / 12);
+  const monthlyWindstormInsurance = roundCents(
+    property.annualWindstormInsurance / 12,
+  );
   const monthlyHoa = roundCents(property.annualHoaDues / 12);
   const monthlyMudUtility = roundCents(property.monthlyMudUtility);
   const monthlyPid = roundCents(property.pidAnnualAssessment / 12);
@@ -371,6 +374,7 @@ export function buildScenario(
       propertyTax.monthlyTax +
       monthlyHomeownersInsurance +
       monthlyFloodInsurance +
+      monthlyWindstormInsurance +
       firstMonthMi +
       monthlyHoa +
       monthlyMudUtility +
@@ -383,6 +387,7 @@ export function buildScenario(
     propertyTax: propertyTax.monthlyTax,
     homeownersInsurance: monthlyHomeownersInsurance,
     floodInsurance: monthlyFloodInsurance,
+    windstormInsurance: monthlyWindstormInsurance,
     mortgageInsurance: firstMonthMi,
     hoa: monthlyHoa,
     mudUtility: monthlyMudUtility,
@@ -412,6 +417,7 @@ export function buildScenario(
     annualPropertyTax: propertyTax.annualTax + property.pidAnnualAssessment,
     annualHomeownersInsurance: property.annualHomeownersInsurance,
     annualFloodInsurance: property.annualFloodInsurance,
+    annualWindstormInsurance: property.annualWindstormInsurance,
     closingDate: options.closingDate,
     discountPoints: loan.discountPoints,
     assumptions: closingCostAssumptions,
@@ -516,6 +522,7 @@ export function buildScenario(
     propertyTax.annualTax +
     property.annualHomeownersInsurance +
     property.annualFloodInsurance +
+    property.annualWindstormInsurance +
     property.annualHoaDues +
     property.pidAnnualAssessment +
     property.monthlyMudUtility * 12;

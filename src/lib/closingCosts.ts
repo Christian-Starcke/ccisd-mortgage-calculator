@@ -79,7 +79,7 @@ export const DEFAULT_CLOSING_COST_ASSUMPTIONS: ClosingCostAssumptions = {
  * under Rule R-5, is a flat $100 and is stored separately as
  * lendersTitlePolicyFee.
  *
- * Only used when the buyer pays the owner's policy, which is not the Fort Bend
+ * Only used when the buyer pays the owner's policy, which is not the Texas Gulf Coast
  * County custom except on new construction.
  */
 export function texasOwnersTitlePremium(coverage: number): number {
@@ -138,6 +138,12 @@ export interface ClosingCostInput {
   annualPropertyTax: number;
   annualHomeownersInsurance: number;
   annualFloodInsurance: number;
+  /**
+   * Separate windstorm premium, where one is required. It is escrowed and
+   * prepaid exactly like the other two, and on the Galveston side of the
+   * district it is the largest of the three.
+   */
+  annualWindstormInsurance: number;
   closingDate: Date;
   discountPoints: number;
   assumptions: ClosingCostAssumptions;
@@ -169,6 +175,7 @@ export function calculateClosingCosts(
     annualPropertyTax,
     annualHomeownersInsurance,
     annualFloodInsurance,
+    annualWindstormInsurance,
     closingDate,
     discountPoints,
     assumptions: a,
@@ -250,7 +257,7 @@ export function calculateClosingCosts(
       amount: texasOwnersTitlePremium(purchasePrice),
       category: "title",
       negotiable: true,
-      note: "In Fort Bend County the seller customarily pays this. Ask for it.",
+      note: "In both Harris and Galveston County the seller customarily pays this. Ask for it.",
     });
   }
   push({
@@ -314,10 +321,14 @@ export function calculateClosingCosts(
     note: "Closing late in the month shrinks this. It is the one closing cost your calendar controls.",
   });
 
-  const totalAnnualInsurance = annualHomeownersInsurance + annualFloodInsurance;
+  const totalAnnualInsurance =
+    annualHomeownersInsurance + annualFloodInsurance + annualWindstormInsurance;
   pushPrepaid({
     id: "prepaid-insurance",
-    label: "First year homeowners and flood insurance premium",
+    label:
+      annualWindstormInsurance > 0
+        ? "First year homeowners, windstorm and flood insurance premium"
+        : "First year homeowners and flood insurance premium",
     amount: roundCents(totalAnnualInsurance),
     category: "prepaid",
     negotiable: false,

@@ -1,13 +1,18 @@
 import type { LookupStatus, ResolvedParcel } from "./lookups/types";
 import { roundCents } from "./money";
 import type { LoanProgramId } from "./types";
+import {
+  DEFAULT_WINDSTORM_RATE_PER_THOUSAND,
+  HOMEOWNERS_RATE_PER_THOUSAND,
+} from "./windstorm";
 
 /**
  * Starting assumptions.
  *
  * Every one of these is editable in the UI. They are chosen to be realistic for
- * a first-time buyer in Fort Bend ISD in late 2026 rather than flattering, since
- * a calculator that starts optimistic just moves the disappointment later.
+ * a first-time buyer in Clear Creek ISD in late 2026 rather than flattering,
+ * since a calculator that starts optimistic just moves the disappointment
+ * later.
  */
 
 export interface CalculatorState {
@@ -32,6 +37,24 @@ export interface CalculatorState {
   annualHoaDues: number;
   /** Homeowners premium expressed per $1,000 of dwelling coverage. */
   insuranceRatePerThousand: number;
+  /**
+   * Separate windstorm premium per $1,000 of dwelling coverage. Applies only
+   * inside the designated catastrophe area, which in this district means the
+   * Galveston County half plus the part of Seabrook east of Highway 146.
+   */
+  windstormRatePerThousand: number;
+  /**
+   * Whether a separate windstorm policy is being assumed. Defaults from the
+   * location or the parcel, and stays overridable, because for a Seabrook or
+   * Pasadena address eligibility turns on the exact street rather than the
+   * city and the buyer may know the answer when the calculator cannot.
+   */
+  separateWindstormPolicy: boolean;
+  /**
+   * True while `separateWindstormPolicy` is the calculator's own conservative
+   * guess rather than something derived or confirmed, so the UI can ask.
+   */
+  windstormUncertain: boolean;
   inFloodZone: boolean;
   annualFloodInsurance: number;
   isNewConstruction: boolean;
@@ -97,15 +120,22 @@ export type UpdateState = <K extends keyof CalculatorState>(
  * localStorage key for `usePersistentState`. Bump the suffix when the stored
  * shape cannot be repaired by spreading `DEFAULT_STATE` over the parsed JSON.
  */
-export const STORAGE_KEY = "fbisd-mortgage-calculator-v3";
+export const STORAGE_KEY = "ccisd-mortgage-calculator-v1";
 
 /**
  * Homeowners insurance is written against dwelling coverage, typically about
- * 78% of purchase price, not the full listing price. Applying $9.50 per $1,000
- * of dwelling coverage on a $400,000 home is about $2,964 a year. Verify with
- * an actual quote: Houston-area premiums vary more than 50% between carriers.
+ * 78% of purchase price, not the full listing price.
+ *
+ * The rate itself depends on wind exposure and is set per location from
+ * `HOMEOWNERS_RATE_PER_THOUSAND` in windstorm.ts, because a policy that
+ * excludes wind and hail is a narrower policy and costs less. This constant is
+ * only the starting value for the default location.
+ *
+ * Verify with an actual quote. The spread between carriers on this coast is
+ * wider than almost anywhere in the country.
  */
-export const DEFAULT_INSURANCE_RATE_PER_THOUSAND = 9.5;
+export const DEFAULT_INSURANCE_RATE_PER_THOUSAND =
+  HOMEOWNERS_RATE_PER_THOUSAND.designated;
 
 /** Typical dwelling coverage as a fraction of purchase price. */
 export const DWELLING_COVERAGE_FRACTION = 0.78;
@@ -119,8 +149,8 @@ export function estimateHomeownersInsurance(
   );
 }
 
-/** Typical monthly MUD water/sewer bill when a parcel sits in a district. */
-export const DEFAULT_MUD_UTILITY_MONTHLY = 110;
+/** Typical monthly utility-district water/sewer bill when a parcel is in one. */
+export const DEFAULT_MUD_UTILITY_MONTHLY = 95;
 
 /**
  * Freddie Mac Primary Mortgage Market Survey, week ending August 27, 2026:
@@ -132,9 +162,11 @@ export const PMMS_15_YEAR = 0.0598;
 export const PMMS_AS_OF = "August 27, 2026";
 
 /**
- * Estimated area median family income for the Houston-The Woodlands-Sugar Land
- * metro, derived from TSAHC's published 80% figure for Fort Bend County of
- * $84,080. Confirm the current figure for household size with the lender.
+ * Estimated area median family income for the Houston-Pasadena-The Woodlands
+ * metro, which covers both Harris and Galveston counties and therefore the
+ * whole district. Program eligibility for HomeReady and Home Possible turns on
+ * it, and the published figure varies by household size, so confirm the
+ * current one with the lender.
  */
 export const ESTIMATED_AREA_MEDIAN_INCOME = 105_100;
 
@@ -151,7 +183,7 @@ export const DEFAULT_STATE: CalculatorState = {
   lookupStatus: "idle",
   lookupError: null,
   purchasePrice: 400_000,
-  locationId: "sugar-land",
+  locationId: "league-city",
   utilityDistrictId: "none",
   manualUtilityRatePer100: null,
   unknownRateOverrides: {},
@@ -159,6 +191,10 @@ export const DEFAULT_STATE: CalculatorState = {
   hoaCertainty: "unknown",
   annualHoaDues: 0,
   insuranceRatePerThousand: DEFAULT_INSURANCE_RATE_PER_THOUSAND,
+  windstormRatePerThousand: DEFAULT_WINDSTORM_RATE_PER_THOUSAND,
+  // The default location is League City, which is in the designated area.
+  separateWindstormPolicy: true,
+  windstormUncertain: false,
   inFloodZone: false,
   annualFloodInsurance: 0,
   isNewConstruction: false,

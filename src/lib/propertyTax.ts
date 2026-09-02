@@ -12,8 +12,12 @@ import { roundCents } from "./money";
  *    effect on the total bill depends entirely on the home's value.
  *
  * Modeling the units separately is what lets the calculator show the real
- * difference between an established neighborhood and a new-construction MUD,
- * which in Fort Bend County can be over a full percentage point of home value.
+ * difference between an established neighborhood and a new-construction MUD.
+ *
+ * Clear Creek ISD adds a third wrinkle: it straddles Harris and Galveston
+ * counties, which code the same district differently (`027` vs `S16`) and bill
+ * a different set of countywide units on either side of the line. Units are
+ * therefore always carried with the county that published the rate.
  */
 
 export type TaxingUnitKind =
@@ -25,7 +29,46 @@ export type TaxingUnitKind =
   | "mud"
   | "lid"
   | "esd"
+  | "hospital"
+  | "education"
+  | "port"
+  | "navigation"
+  /**
+   * A tax increment reinvestment zone or similar overlay. Recorded on the
+   * parcel but levying nothing of its own, so it never adds to the bill.
+   */
+  | "zone"
   | "other";
+
+/** Which appraisal district published a unit. */
+export type County = "harris" | "galveston";
+
+/**
+ * A taxing unit as its appraisal district publishes it, before it is attached
+ * to a particular home. The generated per-county tables are maps of these.
+ */
+export interface TaxUnitCodeRecord {
+  code: string;
+  name: string;
+  kind: TaxingUnitKind;
+  /** Adopted rate per $100 of taxable value, or null when unpublished. */
+  ratePer100: number | null;
+  taxYear: number;
+  maintenanceRate?: number;
+  debtRate?: number;
+  homesteadFlatExemption?: number;
+  homesteadPercentExemption?: number;
+  /**
+   * Fraction of the county's Clear Creek ISD parcels this unit bills. 1 is an
+   * always-on countywide unit; a small share is subdivision-specific.
+   */
+  footprintShare?: number;
+  /** True for overlays that are recorded on a parcel but levy nothing. */
+  nonLevying?: boolean;
+  /** True when no adopted rate is published for this unit. */
+  rateUnknown?: boolean;
+  note?: string;
+}
 
 export interface TaxingUnit {
   id: string;
@@ -47,8 +90,10 @@ export interface TaxingUnit {
   taxYear: number;
   sourceUrl?: string;
   note?: string;
-  /** FBCAD tax-unit code, when this unit came from a parcel lookup. */
+  /** Appraisal-district unit code, when this unit came from a parcel lookup. */
   code?: string;
+  /** Which appraisal district published this unit's rate. */
+  county?: County;
   /** True when the county does not publish a rate for this unit. */
   rateUnknown?: boolean;
 }

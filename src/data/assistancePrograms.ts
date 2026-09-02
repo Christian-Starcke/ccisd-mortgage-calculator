@@ -2,7 +2,13 @@ import type { AssistanceProgram } from "@/lib/assistance";
 
 /**
  * Down payment assistance, tax credits and grants available to a first-time
- * buyer in Fort Bend ISD.
+ * buyer in Clear Creek ISD.
+ *
+ * The district spans two counties and a dozen cities, and local assistance is
+ * scoped to whichever of those actually administers it. `eligibleLocationIds`
+ * is what enforces that: a City of Houston award cannot be claimed on a League
+ * City address, and the Harris County programme does not reach Galveston
+ * County at all.
  *
  * Every figure carries a `confidence` marker. "verified" means the number was
  * read off the administering agency's own current published document.
@@ -58,7 +64,7 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
     summary:
       "Choose 2%, 3%, 4% or 5% of your loan amount as down payment and closing cost help, structured either as a grant you never repay or as a three-year forgivable second lien.",
     notes: [
-      "The Fort Bend County household income limit is $156,000, which is unusually generous and covers most dual-income households.",
+      "The Harris and Galveston County household income limit is in the $150,000 range, which is unusually generous and covers most dual-income households. Confirm the current figure for the county the property is in, because TSAHC publishes them per county and this district spans two.",
       "No first-time buyer requirement, and no purchase price limit when you take the assistance without a Mortgage Credit Certificate.",
       "The grant option never has to be repaid, even if you sell next year.",
       "The catch is the interest rate. This calculator adds a 0.75% first-mortgage premium when you take the grant, which is the typical spread that funds it. Ask for the three-year forgivable second instead: it usually prices 0.375 to 0.75 points cheaper than the grant.",
@@ -106,11 +112,11 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
     ],
     status: "active",
     summary:
-      "The same 2% to 5% assistance as Home Sweet Texas, with a higher income ceiling of $176,800 in Fort Bend County, for teachers, school staff, police, firefighters, EMS, corrections officers and veterans.",
+      "The same 2% to 5% assistance as Home Sweet Texas, with a higher income ceiling, for teachers, school staff, police, firefighters, EMS, corrections officers and veterans.",
     notes: [
       "Eligible professions include teachers, teacher aides, school librarians, counselors and nurses, plus police, public security officers, firefighters, EMS personnel, corrections and juvenile corrections officers, county jailers, and veterans.",
       "If you or a co-borrower holds one of these jobs, this strictly dominates Home Sweet Texas: same benefit, $20,800 more income headroom.",
-      "Fort Bend ISD is one of the largest employers in the county, so a household with one teacher in it should always check this first.",
+      "Clear Creek ISD employs around 5,000 people and NASA Johnson Space Center anchors the area, so a household with a teacher, school employee, or first responder in it should always check this first. It is the most commonly missed programme in the district.",
     ],
     confidence: "verified",
   },
@@ -194,7 +200,7 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
       compatibleLoanPrograms: ["fha", "va", "usda", "conv-97", "homeready"],
       eligibleLocationIds: null,
       manualChecks: [
-        "Confirm the current assistance percentage and the Fort Bend County income and price limits directly with the program, as they are revised during the year.",
+        "Confirm the current assistance percentage and the income and price limits for the county the property is in directly with the program, as they are revised during the year and differ between Harris and Galveston.",
         "This is a bond-backed program, so the first mortgage rate is set by the program rather than shopped.",
         "Confirm whether the second lien is forgivable or repayable on sale for the specific structure you are offered.",
       ],
@@ -239,7 +245,7 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
       requiresVeteran: false,
       requiresHomebuyerEducation: true,
       compatibleLoanPrograms: CONVENTIONAL_AND_GOVERNMENT,
-      eligibleLocationIds: ["houston-in-fbisd"],
+      eligibleLocationIds: ["houston-clear-lake"],
       manualChecks: [
         "The property must be inside Houston city limits. Verify the address with the city, not just the mailing address, since a Houston postal address is not the same as being in the city.",
         "Household income must be at or below 80% of area median income, counting everyone in the household.",
@@ -252,7 +258,7 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
     summary:
       "Up to $75,000 as a forgivable second lien, forgiven if you stay in the home for the full compliance period. By far the largest award in the region, but only for addresses inside Houston city limits.",
     notes: [
-      "Only a small slice of Fort Bend ISD falls inside Houston city limits, but if your target address does, this is worth more than every other program combined.",
+      "About two in five Harris County parcels in this district are inside Houston city limits — Clear Lake City, Bay Oaks and the neighbourhoods around it — which makes this the most valuable programme in the district by a wide margin. It reaches none of the Galveston County side.",
       "The income ceiling is genuinely low. Modeled here against roughly 80% of area median income, which you should confirm for your household size.",
       "Funding comes from federal HOME and CDBG allocations and pauses between cycles.",
     ],
@@ -260,14 +266,14 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
   },
 
   {
-    id: "fort-bend-county-dpa",
-    name: "Fort Bend County Housing Finance Corporation assistance",
-    administrator: "Fort Bend County Community Development Department",
-    url: "https://www.fortbendcountytx.gov/government/departments/community-development",
+    id: "harris-county-dap",
+    name: "Harris County Downpayment Assistance Program",
+    administrator: "Harris County Housing and Community Development",
+    url: "https://hcd.harriscountytx.gov/Residents/Homeownership-Programs/Down-Payment-Assistance",
     kind: "forgivable-second",
     benefitBasis: "fixed-amount",
-    benefitValue: 10_000,
-    maxBenefit: 10_000,
+    benefitValue: 23_800,
+    maxBenefit: 23_800,
     forgivenessYears: 5,
     secondLienRate: 0,
     secondLienTermMonths: null,
@@ -277,31 +283,60 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
     eligibility: {
       maxHouseholdIncome: 84_080,
       maxPurchasePrice: null,
-      minCreditScore: 620,
+      minCreditScore: 580,
       maxDti: null,
       requiresFirstTimeBuyer: true,
       requiresTexasHeroProfession: false,
       requiresVeteran: false,
       requiresHomebuyerEducation: true,
       compatibleLoanPrograms: CONVENTIONAL_AND_GOVERNMENT,
-      eligibleLocationIds: null,
+      // Harris County only, and county programmes normally exclude cities that
+      // run their own. Houston does, so a Clear Lake address goes to the city
+      // programme above instead of this one.
+      eligibleLocationIds: [
+        "webster",
+        "nassau-bay",
+        "el-lago",
+        "taylor-lake-village",
+        "seabrook",
+        "friendswood-ccisd",
+        "pasadena-ccisd",
+        "unincorporated-harris",
+        "unincorporated-harris-mud",
+      ],
       manualChecks: [
-        "Call the county Community Development Department to confirm the program is currently funded and open. County HOME-funded assistance is frequently exhausted or between cycles.",
-        "The award amount modeled here is a placeholder. Get the current figure from the county before relying on it.",
-        "Properties inside city limits of a city that runs its own program are often excluded from the county program.",
+        "Confirm the property is in Harris County. This programme does not reach the Galveston County half of the district, which is most of League City, Kemah and Clear Lake Shores.",
+        "Confirm the award still stands at $23,800 and that the cycle is open. County assistance is funded from federal HOME and CDBG allocations and is regularly exhausted mid-year or paused between cycles.",
+        "Ask whether your city is excluded. County programmes normally carve out cities running their own assistance.",
+        "Household income must be at or below 80% of area median income for Harris County as HUD defines it, counting everyone in the household.",
       ],
     },
     stackable: false,
     excludes: [],
     status: "unverified",
     summary:
-      "County-administered federal HOME funds for down payment and closing costs, as a forgivable second lien for income-qualified first-time buyers.",
+      "Up to $23,800 toward down payment and closing costs as a forgivable second lien, fully forgiven after five years in the home. Covers the down payment, customary closing costs, the owner's title policy, a three-year home warranty and a year of flood insurance.",
     notes: [
-      "The single most important phone call on this list, because it is local, it is real, and its availability is impossible to determine from the web.",
-      "County HFC assistance is modeled at $10,000. Confirm the current figure and whether the property is inside a city that runs its own program.",
+      "The largest award available on the Harris County side outside Houston city limits, and worth a phone call before anything else on this list.",
+      "Because it can pay a year of flood insurance, it is worth more here than the headline figure suggests on a parcel in a flood zone.",
+      "The income ceiling is genuinely low. Modelled against roughly 80% of area median income, which you should confirm for your household size.",
     ],
     confidence: "needs-verification",
   },
+
+  /**
+   * There is deliberately no Galveston County entry.
+   *
+   * No countywide down payment assistance programme could be confirmed for
+   * Galveston County from a primary source, and the City of Galveston's
+   * programme covers only addresses inside that city, which is not in this
+   * school district. Since roughly 44% of Clear Creek ISD is in Galveston
+   * County, that is a real gap rather than an oversight: a League City,
+   * Kemah or Clear Lake Shores buyer is limited to the statewide programmes
+   * above. Inventing a placeholder here would be worse than leaving the gap
+   * visible, so the README says so instead. If a Galveston County or League
+   * City programme is confirmed, it belongs here.
+   */
 
   {
     id: "seth-5-star",
@@ -330,7 +365,7 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
       compatibleLoanPrograms: CONVENTIONAL_AND_GOVERNMENT,
       eligibleLocationIds: null,
       manualChecks: [
-        "Confirm Fort Bend County is in the current service area and that funds are available.",
+        "Confirm the county is in the current service area and that funds are available. SETH is the Southeast Texas Housing Finance Corporation and this district is its home market, so both counties are normally covered.",
         "Confirm the current assistance tiers, which have ranged from 3% to 6% of the loan amount.",
       ],
     },
@@ -425,7 +460,7 @@ export const ASSISTANCE_PROGRAMS: AssistanceProgram[] = [
       manualChecks: [
         "These grants are tied to specific census tracts designated as majority-minority or low-to-moderate income. Eligibility is decided by the property address, not by your income.",
         "Give the exact address to two or three of these banks and ask them to run it against their grant-eligible tract list. It takes minutes and costs nothing.",
-        "Parts of Missouri City, Fresno and Arcola are considerably more likely to qualify than Sugar Land.",
+        "No part of Clear Creek ISD qualifies. The district is continuously built-up suburban and coastal Houston, which USDA excludes in full, so this is listed only so the comparison can say what is unavailable rather than stay silent about it.",
       ],
     },
     stackable: true,

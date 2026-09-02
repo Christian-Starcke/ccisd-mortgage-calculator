@@ -1,5 +1,5 @@
 import type { BuyerProfile, LoanProgramId, PropertyProfile } from "./types";
-import { FORT_BEND_LOAN_LIMITS_2026 } from "@/data/loanLimits";
+import { HOUSTON_MSA_LOAN_LIMITS_2026 } from "@/data/loanLimits";
 
 export interface LoanProgram {
   id: LoanProgramId;
@@ -20,7 +20,7 @@ export interface LoanProgram {
   requiresVeteran: boolean;
   requiresRuralAddress: boolean;
   requiresHomebuyerEducation: boolean;
-  /** Loan amount ceiling for this program in Fort Bend County. */
+  /** Loan amount ceiling for this program in the Houston MSA. */
   maxLoanAmount: number | null;
   /**
    * Maximum interested-party (seller) contribution toward closing costs, as a
@@ -64,7 +64,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
     requiresVeteran: false,
     requiresRuralAddress: false,
     requiresHomebuyerEducation: true,
-    maxLoanAmount: FORT_BEND_LOAN_LIMITS_2026.conforming,
+    maxLoanAmount: HOUSTON_MSA_LOAN_LIMITS_2026.conforming,
     maxSellerConcessionFraction: conventionalSellerConcessionLimit,
     mortgageInsuranceKind: "conventional-pmi",
     upfrontFeeRate: 0,
@@ -92,7 +92,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
     requiresVeteran: false,
     requiresRuralAddress: false,
     requiresHomebuyerEducation: true,
-    maxLoanAmount: FORT_BEND_LOAN_LIMITS_2026.conforming,
+    maxLoanAmount: HOUSTON_MSA_LOAN_LIMITS_2026.conforming,
     maxSellerConcessionFraction: conventionalSellerConcessionLimit,
     mortgageInsuranceKind: "conventional-pmi",
     upfrontFeeRate: 0,
@@ -121,7 +121,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
     requiresVeteran: false,
     requiresRuralAddress: false,
     requiresHomebuyerEducation: true,
-    maxLoanAmount: FORT_BEND_LOAN_LIMITS_2026.conforming,
+    maxLoanAmount: HOUSTON_MSA_LOAN_LIMITS_2026.conforming,
     maxSellerConcessionFraction: conventionalSellerConcessionLimit,
     mortgageInsuranceKind: "conventional-pmi",
     upfrontFeeRate: 0,
@@ -148,7 +148,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
     requiresVeteran: false,
     requiresRuralAddress: false,
     requiresHomebuyerEducation: false,
-    maxLoanAmount: FORT_BEND_LOAN_LIMITS_2026.conforming,
+    maxLoanAmount: HOUSTON_MSA_LOAN_LIMITS_2026.conforming,
     maxSellerConcessionFraction: conventionalSellerConcessionLimit,
     mortgageInsuranceKind: "conventional-pmi",
     upfrontFeeRate: 0,
@@ -172,7 +172,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
     requiresVeteran: false,
     requiresRuralAddress: false,
     requiresHomebuyerEducation: false,
-    maxLoanAmount: FORT_BEND_LOAN_LIMITS_2026.conforming,
+    maxLoanAmount: HOUSTON_MSA_LOAN_LIMITS_2026.conforming,
     maxSellerConcessionFraction: conventionalSellerConcessionLimit,
     mortgageInsuranceKind: "conventional-pmi",
     upfrontFeeRate: 0,
@@ -194,7 +194,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
     requiresVeteran: false,
     requiresRuralAddress: false,
     requiresHomebuyerEducation: false,
-    maxLoanAmount: FORT_BEND_LOAN_LIMITS_2026.conforming,
+    maxLoanAmount: HOUSTON_MSA_LOAN_LIMITS_2026.conforming,
     maxSellerConcessionFraction: conventionalSellerConcessionLimit,
     mortgageInsuranceKind: "none",
     upfrontFeeRate: 0,
@@ -219,7 +219,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
     requiresVeteran: false,
     requiresRuralAddress: false,
     requiresHomebuyerEducation: false,
-    maxLoanAmount: FORT_BEND_LOAN_LIMITS_2026.fha,
+    maxLoanAmount: HOUSTON_MSA_LOAN_LIMITS_2026.fha,
     maxSellerConcessionFraction: 0.06,
     mortgageInsuranceKind: "fha-mip",
     upfrontFeeRate: 0.0175,
@@ -256,7 +256,7 @@ export const LOAN_PROGRAMS: Record<LoanProgramId, LoanProgram> = {
       "No down payment required, and the 1% upfront guarantee fee can be financed into the loan.",
       "The 0.35% annual fee is roughly a third of what FHA charges and well under PMI at 3% down.",
       "Household income must be at or below 115% of the area median, counting every adult in the house.",
-      "The property must sit inside a USDA-eligible area. Parts of southern and western Fort Bend County qualify even though Sugar Land and Missouri City do not.",
+      "The property must sit inside a USDA-eligible area, and no part of Clear Creek ISD is. The district is continuously built-up suburban Houston between Pasadena and Galveston Bay, which USDA excludes in its entirety, so this program is screened out on every address here. It is priced anyway so the comparison shows what is being given up.",
       "You may not own another adequate dwelling within commuting distance.",
     ],
     sourceUrl:
@@ -364,7 +364,7 @@ export function checkEligibility(args: {
 
   if (program.maxLoanAmount != null && loanAmount > program.maxLoanAmount) {
     reasons.push(
-      `Loan amount exceeds the ${program.shortName} ceiling for Fort Bend County.`,
+      `Loan amount exceeds the ${program.shortName} ceiling for the Houston metro area.`,
     );
   }
 

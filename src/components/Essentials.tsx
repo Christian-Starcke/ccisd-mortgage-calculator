@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { findLocationPreset, typicalHoaForLocation } from "@/data/fortBendTaxRates";
+import { findLocationPreset, typicalHoaForLocation } from "@/data/clearCreekTaxRates";
 import { type CalculatorState, type UpdateState } from "@/lib/defaults";
 import { formatUSD } from "@/lib/money";
 import { AddressLookup } from "./AddressLookup";

@@ -1,4 +1,4 @@
-import { searchParcels } from "@/lib/lookups/fbcad";
+import { searchParcels } from "@/lib/lookups/parcelSearch";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -17,5 +17,10 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: result.error }, { status: 502 });
   }
 
-  return Response.json({ candidates: result.candidates });
+  // `partial` is set when one of the two appraisal districts answered and the
+  // other did not. The results are still worth showing; the caller says so.
+  return Response.json({
+    candidates: result.candidates,
+    partial: result.partial,
+  });
 }
