@@ -366,7 +366,9 @@ export function DerivedAssumptions({
               hint={
                 parcel?.flood
                   ? `FEMA zone ${parcel.flood.zone ?? "unknown"}.`
-                  : "Looked up from the parcel centroid when you pick an address."
+                  : parcel?.ref.county === "galveston"
+                    ? "Not known for this address. Galveston CAD's download carries no parcel geometry, so there is no point to test against the FEMA layer — look this one up yourself. Leaving it off is not the same as being outside a flood zone."
+                    : "Looked up from the parcel centroid when you pick a Harris County address."
               }
             />
             {state.inFloodZone && (

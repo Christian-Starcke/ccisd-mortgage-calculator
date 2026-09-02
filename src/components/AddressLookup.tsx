@@ -354,6 +354,26 @@ export function AddressLookup({
             </Callout>
           )}
 
+          {parcel.ref.county === "galveston" && !state.inFloodZone && (
+            <Callout tone="bad" title="Flood zone unknown — check it yourself">
+              The Galveston download carries no parcel geometry, so there is
+              nothing to test against the FEMA layer and the payment below
+              carries no flood premium. That is a gap in the data, not a
+              finding that this address is outside a flood zone. Much of League
+              City is in one, and the premium is often $100 to $200 a month, so
+              look up{" "}
+              <a
+                href="https://msc.fema.gov/portal/search"
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2"
+              >
+                this address on the FEMA map
+              </a>{" "}
+              and enter the premium under Insurance and flood.
+            </Callout>
+          )}
+
           {parcel.sellerExemptions && (
             <Callout
               tone="warn"
