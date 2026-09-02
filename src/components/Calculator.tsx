@@ -23,6 +23,7 @@ import {
 } from "@/lib/pathRank";
 import { buildScenario, type ScenarioResult } from "@/lib/scenario";
 import { calculatePropertyTax } from "@/lib/propertyTax";
+import { assessWaterService } from "@/lib/waterService";
 import {
   TAX_YEAR,
   findLocationPreset,
@@ -43,6 +44,7 @@ import {
 import {
   AffordabilityCard,
   CashToCloseCard,
+  WaterServiceCard,
   Milestones,
   PaymentSummary,
   TaxBreakdown,
@@ -142,6 +144,17 @@ export function Calculator() {
           <CashToCloseCard
             scenario={detailScenario}
             cashAvailable={state.cashAvailable}
+          />
+          <WaterServiceCard
+            water={assessWaterService({
+              propertyTax: detailScenario.propertyTax,
+              monthlyWaterBill: detailScenario.monthly.mudUtility,
+              hasParcel: state.resolvedParcel != null,
+              unknownRateCodes: state.resolvedParcel?.missingRateCodes ?? [],
+              taxEscrowMonths: detailScenario.closingCosts.taxEscrowMonths,
+            })}
+            scenario={detailScenario}
+            hasParcel={state.resolvedParcel != null}
           />
           <AffordabilityCard affordability={affordability} state={state} />
 

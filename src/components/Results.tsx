@@ -4,6 +4,7 @@ import { formatPercent, formatUSD } from "@/lib/money";
 import type { ScenarioResult } from "@/lib/scenario";
 import type { AffordabilityResult } from "@/lib/affordability";
 import type { CalculatorState } from "@/lib/defaults";
+import type { WaterServiceAssessment } from "@/lib/waterService";
 import { Badge, Callout, Card, Disclosure, LineItem, Stat } from "./ui";
 
 const PAYMENT_COLORS = {
@@ -556,15 +557,15 @@ export function AffordabilityCard({
 
   return (
     <Card
-      title="What you can actually afford"
-      subtitle="Solved against your income, your debts, your cash, and this location's real tax rate."
+      title="The most a lender would approve"
+      subtitle="Solved against your income, your debts, your cash, and this location's real tax rate. This is a ceiling, not a budget — see below."
     >
       <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-end sm:gap-8">
         <Stat
-          label="Maximum purchase price"
+          label="Underwriting ceiling"
           value={formatUSD(affordability.maxPurchasePrice)}
           size="lg"
-          tone={overBudget ? "warn" : "good"}
+          tone={overBudget ? "warn" : "neutral"}
         />
         <Stat
           label="What limits you"
@@ -573,9 +574,31 @@ export function AffordabilityCard({
         />
       </div>
 
-      <div className="mt-5">
+      <div className="mt-5 space-y-3">
         <Callout tone={overBudget ? "warn" : "neutral"}>
           {affordability.explanation}
+        </Callout>
+
+        {/*
+          The number above is what an underwriter would sign off on at the
+          program's maximum debt-to-income ratio. That is a limit, not a
+          recommendation, and at the top of it housing eats a share of gross
+          income most people would not choose deliberately. Showing the share
+          is the only way to make the distinction concrete.
+        */}
+        <Callout tone="warn" title="This is a ceiling, not a budget">
+          At {formatUSD(affordability.maxPurchasePrice)} the payment is{" "}
+          {formatUSD(affordability.scenario.monthly.total)} a month, which is{" "}
+          {formatPercent(
+            affordability.scenario.monthly.total /
+              Math.max(state.annualHouseholdIncome / 12, 1),
+            0,
+          )}{" "}
+          of your gross monthly income — solved to a{" "}
+          {formatPercent(affordability.targetBackEndDti, 0)} debt-to-income
+          ratio, which is the program maximum rather than a comfortable
+          target. Plenty of buyers who qualify at this number regret it. Treat
+          it as the edge of what is possible and pick your own budget below it.
         </Callout>
       </div>
 
@@ -610,6 +633,143 @@ export function AffordabilityCard({
           value={formatUSD(affordability.scenario.dti.grossMonthlyIncome)}
         />
       </div>
+    </Card>
+  );
+}
+
+/**
+ * Who supplies the water, and what that costs.
+ *
+ * Given its own card rather than buried in the tax breakdown because it is
+ * the biggest driver of monthly cost that a listing never states. A buyer
+ * comparing two houses at the same price in the same school district has no
+ * way to see that one of them carries a utility district and the other does
+ * not — and that difference can be over $300 a month.
+ */
+export function WaterServiceCard({
+  water,
+  scenario,
+  hasParcel,
+}: {
+  water: WaterServiceAssessment;
+  scenario: ScenarioResult;
+  hasParcel: boolean;
+}) {
+  const { service } = water;
+
+  const heading =
+    service === "district"
+      ? "This property is in a utility district"
+      : service === "city"
+        ? "This property is city-served"
+        : "Water service unknown";
+
+  const tone = service === "district" ? "warn" : service === "city" ? "good" : "bad";
+
+  return (
+    <Card
+      title="Water and sewer"
+      subtitle="The largest cost a listing never tells you. A utility district charges its own property tax and bills water separately; a city does neither."
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={tone}>{heading}</Badge>
+        {service === "district" && water.combinedRatePer100 > 0 && (
+          <Badge tone="neutral">
+            {water.combinedRatePer100.toFixed(4)} per $100
+          </Badge>
+        )}
+      </div>
+
+      {service === "district" && (
+        <>
+          <div className="mt-4 divide-y divide-ink-100">
+            {water.districts.map((unit) => (
+              <LineItem
+                key={unit.id}
+                label={unit.name}
+                amount={formatUSD(
+                  scenario.propertyTax.lineItems.find(
+                    (row) => row.unit.id === unit.id,
+                  )?.annualTax ?? 0,
+                )}
+                note={`${unit.ratePer100.toFixed(4)} per $100 a year${
+                  unit.homesteadPercentExemption || unit.homesteadFlatExemption
+                    ? ""
+                    : " · grants no homestead exemption"
+                }`}
+              />
+            ))}
+            <LineItem
+              label="District property tax, monthly"
+              amount={formatUSD(water.monthlyDistrictTax)}
+            />
+            <LineItem
+              label="District water and sewer bill, monthly"
+              amount={formatUSD(water.monthlyWaterBill)}
+              note="Billed by the district, not the city. Estimated — the district publishes its own rate schedule."
+            />
+            <LineItem
+              label="What the district costs you every month"
+              amount={formatUSD(water.monthlyTotal)}
+              emphasis
+            />
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <Callout tone="warn" title="It costs you again at closing">
+              The lender escrows{" "}
+              {scenario.closingCosts.taxEscrowMonths} months of property tax up
+              front, so this district adds{" "}
+              {formatUSD(water.districtTaxAtClosing)} to your cash to close on
+              top of {formatUSD(water.monthlyTotal)} a month. A higher tax bill
+              hits twice, and the second hit is what pushes some buyers from
+              being limited by income to being limited by cash.
+            </Callout>
+
+            <Callout tone="neutral" title="What it would cost without one">
+              An otherwise identical house on city water would pay{" "}
+              {formatUSD(scenario.monthly.total - water.monthlyTotal)} a month
+              instead of {formatUSD(scenario.monthly.total)} — the district is{" "}
+              {formatPercent(
+                water.monthlyTotal / Math.max(scenario.monthly.total, 1),
+                0,
+              )}{" "}
+              of your payment and{" "}
+              {formatPercent(water.shareOfTaxBill, 0)} of your tax bill. This is
+              usually the single biggest difference between two houses at the
+              same price in the same school district, and it is not on either
+              listing.
+            </Callout>
+          </div>
+        </>
+      )}
+
+      {service === "city" && (
+        <div className="mt-4">
+          <Callout tone="good">
+            No utility district bills this parcel, so there is no district
+            property tax and no separate district water bill — the city
+            supplies water and charges for it on its own account, which is not
+            escrowed into your mortgage payment. Compared with an otherwise
+            identical house in a utility district, this typically saves $150 to
+            $350 a month plus a year of the district&apos;s tax at closing.
+          </Callout>
+        </div>
+      )}
+
+      {service === "unknown" && (
+        <div className="mt-4">
+          <Callout tone="bad">
+            {water.unknownRateDistricts.length > 0
+              ? `${water.unknownRateDistricts
+                  .map((r) => r.name)
+                  .join(", ")} bills this parcel, but the county publishes no rate for it — it is collected privately. Enter the rate from the appraisal record under More options, because a district left at zero is the largest possible understatement of this payment.`
+              : hasParcel
+                ? "The parcel record did not resolve a water provider. Check the appraisal record before trusting the payment."
+                : "Pick the parcel above. Until then this uses whatever the location preset assumes, and a district is worth $150 to $350 a month — far too much to guess at."}
+          </Callout>
+        </div>
+      )}
     </Card>
   );
 }

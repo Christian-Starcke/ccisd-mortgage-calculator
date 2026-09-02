@@ -162,7 +162,7 @@ export function DerivedAssumptions({
                   <strong>{formatUSD(Math.abs(riskDelta), 0)} a year</strong>.
                 </p>
                 <a
-                  href="https://www.fortbendisd.com/interactivemap"
+                  href="https://www.ccisd.net/district-map"
                   target="_blank"
                   rel="noreferrer"
                   className="mt-2 inline-block text-xs font-medium underline underline-offset-2"
