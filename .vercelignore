@@ -1,0 +1,10 @@
+# The annual appraisal-district drops are gigabytes of source data consumed
+# only by scripts/, never by the app. They are gitignored, so a git-linked
+# deployment never sees them — but `vercel deploy` from a working copy that has
+# them will happily upload 1.5 GB. This stops that.
+/data-drop/
+
+# Nothing under scripts/ runs at build or request time. The rate tables and the
+# parcel footprint they produce are already committed or already in the
+# database.
+/scripts/
