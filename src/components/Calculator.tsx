@@ -630,6 +630,13 @@ function buildSavingsActions({
    */
   const appraised = scenario.propertyTax.appraisedValue;
   const overRoll = appraised - scenario.purchasePrice;
+  /**
+   * Base for the recurring protest tip below. If the value is first corrected
+   * down to the sale price, every later protest argues against that lower
+   * number, so the two actions must not both be measured against the current
+   * roll — the ranked list sums their values and would double-count.
+   */
+  let recurringProtestBase = scenario.propertyTax.annualTax;
   if (scenario.propertyTax.annualTax > 0 && overRoll / scenario.purchasePrice > 0.05) {
     const atSalePrice = calculatePropertyTax({
       appraisedValue: scenario.purchasePrice,
@@ -638,6 +645,7 @@ function buildSavingsActions({
     });
     const saving = scenario.propertyTax.annualTax - atSalePrice.annualTax;
     if (saving > 0) {
+      recurringProtestBase = atSalePrice.annualTax;
       actions.push({
         title: "Protest down to what you actually paid",
         detail: `The appraisal district has this parcel at ${formatUSD(appraised, 0)}, which is ${formatUSD(overRoll, 0)} above your ${formatUSD(scenario.purchasePrice, 0)} price. The payment above bills the roll, because that is what you will be billed until this is fixed. A recent arm's-length sale below the appraised value is the strongest evidence an appraisal review board sees — it is not a comparable sale, it is the sale — so bring your closing statement. Getting the value down to your purchase price is ${formatUSD(saving / 12)} a month.`,
@@ -648,11 +656,15 @@ function buildSavingsActions({
     }
   }
 
-  if (scenario.propertyTax.annualTax > 0) {
-    const protestSaving = scenario.propertyTax.annualTax * 0.07;
+  if (recurringProtestBase > 0) {
+    const protestSaving = recurringProtestBase * 0.07;
     actions.push({
       title: "Protest your appraised value every single year",
-      detail: `Appraisals in both counties are formula-driven and routinely high. A protest is free, can be filed online through the appraisal district, and a 7% reduction is a common outcome with basic comparable sales. On your bill that is about ${formatUSD(protestSaving)} a year.`,
+      detail: `Appraisals in both counties are formula-driven and routinely high. A protest is free, can be filed online through the appraisal district, and a 7% reduction is a common outcome with basic comparable sales.${
+        recurringProtestBase < scenario.propertyTax.annualTax
+          ? ` This is on top of the correction above, so it is measured against the ${formatUSD(recurringProtestBase)} bill you would have after it, not today's — about ${formatUSD(protestSaving)} a year.`
+          : ` On your bill that is about ${formatUSD(protestSaving)} a year.`
+      }`,
       value: protestSaving * horizon,
       valueLabel: `${formatUSD(protestSaving)}/yr`,
       effort: "paperwork",
