@@ -22,6 +22,7 @@ import {
   type RankedPath,
 } from "@/lib/pathRank";
 import { buildScenario, type ScenarioResult } from "@/lib/scenario";
+import { calculatePropertyTax } from "@/lib/propertyTax";
 import {
   TAX_YEAR,
   findLocationPreset,
@@ -613,6 +614,38 @@ function buildSavingsActions({
       value: closingCostsPayableBySeller,
       effort: "negotiate",
     });
+  }
+
+  /**
+   * When the roll is above what the buyer is paying, the protest is a much
+   * better proposition than the generic one and deserves its own item.
+   *
+   * A recent arm's-length sale below the appraised value is the strongest
+   * evidence available to an appraisal review board — far better than
+   * comparable sales, because it *is* the comparable. So the saving is
+   * computed by actually re-billing every unit at the purchase price rather
+   * than by assuming a percentage, and the tax the calculator shows stays on
+   * the current roll, which is what will really be billed until the protest
+   * succeeds.
+   */
+  const appraised = scenario.propertyTax.appraisedValue;
+  const overRoll = appraised - scenario.purchasePrice;
+  if (scenario.propertyTax.annualTax > 0 && overRoll / scenario.purchasePrice > 0.05) {
+    const atSalePrice = calculatePropertyTax({
+      appraisedValue: scenario.purchasePrice,
+      units: scenario.propertyTax.lineItems.map((row) => row.unit),
+      claimHomestead: scenario.propertyTax.homesteadApplied,
+    });
+    const saving = scenario.propertyTax.annualTax - atSalePrice.annualTax;
+    if (saving > 0) {
+      actions.push({
+        title: "Protest down to what you actually paid",
+        detail: `The appraisal district has this parcel at ${formatUSD(appraised, 0)}, which is ${formatUSD(overRoll, 0)} above your ${formatUSD(scenario.purchasePrice, 0)} price. The payment above bills the roll, because that is what you will be billed until this is fixed. A recent arm's-length sale below the appraised value is the strongest evidence an appraisal review board sees — it is not a comparable sale, it is the sale — so bring your closing statement. Getting the value down to your purchase price is ${formatUSD(saving / 12)} a month.`,
+        value: saving * horizon,
+        valueLabel: `${formatUSD(saving)}/yr`,
+        effort: "paperwork",
+      });
+    }
   }
 
   if (scenario.propertyTax.annualTax > 0) {

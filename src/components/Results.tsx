@@ -118,8 +118,14 @@ export function PaymentSummary({
             swatch={color}
             note={
               label === "Mortgage insurance" && scenario.pmiQuote
-                ? `${formatPercent(scenario.pmiQuote.annualRate, 2)} a year${
-                    scenario.pmiQuote.reducedCoverage ? ", at the reduced coverage level" : ""
+                ? // A card rate for this LTV and score band, not a quote. The
+                  // real one is priced per borrower and comes in higher at
+                  // least as often as it comes in lower, so say so rather than
+                  // let a two-decimal figure imply precision it does not have.
+                  `${formatPercent(scenario.pmiQuote.annualRate, 2)} a year — typical for this credit score and loan-to-value, but your quote is priced individually and can come in higher${
+                    scenario.pmiQuote.reducedCoverage
+                      ? ", and this is at the reduced coverage level"
+                      : ""
                   }`
                 : label === "HOA dues" && scenario.hoaEstimated
                   ? "Estimate — confirm on the listing"
