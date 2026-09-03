@@ -2,6 +2,7 @@
 
 import { ASSISTANCE_PROGRAMS } from "@/data/assistancePrograms";
 import { findLocationPreset } from "@/data/clearCreekTaxRates";
+import { resolveStateTaxUnits } from "@/lib/buildFromState";
 import type { CalculatorState } from "@/lib/defaults";
 import { formatUSD } from "@/lib/money";
 import type { PathRanking, RankedPath } from "@/lib/pathRank";
@@ -62,6 +63,7 @@ export function AnswerCards({
   onAutoPick: () => void;
 }) {
   const { lowestMonthly, lowestCash, bestCombined } = ranking;
+  const usesParcelTax = resolveStateTaxUnits(state).fromParcel;
 
   if (!bestCombined || !lowestMonthly || !lowestCash) {
     return (
@@ -212,14 +214,27 @@ export function AnswerCards({
         </div>
       )}
 
-      {!state.resolvedParcel && state.addressQuery.trim().length > 0 && (
+      {/*
+        * Gated on whether the preset is actually billing the tax, not on
+        * whether a parcel is selected. A Harris account with no row in the
+        * stored footprint resolves as a parcel but carries no taxing units, so
+        * the preset is still in force and the buyer still needs telling.
+        */}
+      {!usesParcelTax && state.addressQuery.trim().length > 0 && (
         <div className="mt-4">
           <Callout tone="warn" title="These taxes are a location guess">
-            Pick the matching parcel from the address search. Until you do, the
-            monthly payment and cash to close use the{" "}
-            {findLocationPreset(state.locationId).name} preset instead of this
-            house’s actual tax districts — and that can change which assistance
-            program wins.
+            {state.resolvedParcel
+              ? `This parcel's appraisal record lists no Clear Creek ISD taxing units, so the monthly payment and cash to close fall back to the ${findLocationPreset(state.locationId).name} preset instead of this house's actual tax districts. Confirm the district before you rely on the tax figure.`
+              : null}
+            {!state.resolvedParcel ? (
+              <>
+                Pick the matching parcel from the address search. Until you do,
+                the monthly payment and cash to close use the{" "}
+                {findLocationPreset(state.locationId).name} preset instead of
+                this house’s actual tax districts — and that can change which
+                assistance program wins.
+              </>
+            ) : null}
           </Callout>
         </div>
       )}

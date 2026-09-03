@@ -69,11 +69,23 @@ export async function searchParcels(query: string): Promise<
     }
   }
 
+  let harrisUnitsFailed: string | null = null;
+
   if (harris.ok && harris.candidates.length > 0) {
     const stored = await getParcelRows(
       "harris",
       harris.candidates.map((c) => c.ref.id),
     );
+
+    /*
+     * A failure here is not evidence about any parcel. Harris candidates carry
+     * no taxing units of their own, so without the stored footprint there is
+     * nothing to test membership against — and answering "false" would tell a
+     * buyer inside the district that their house is outside it because a
+     * database was unreachable. Membership stays unknown and the caller says so.
+     */
+    if (!stored.ok) harrisUnitsFailed = stored.error;
+
     for (const candidate of harris.candidates) {
       const row = stored.ok ? stored.rows.get(candidate.ref.id) : undefined;
       const codes = row?.entity_codes ?? [];
@@ -81,19 +93,28 @@ export async function searchParcels(query: string): Promise<
       candidates.push({
         ...candidate,
         taxUnitCodes: codes,
-        vintage: row ? `${HARRIS_VINTAGE}; units ${row.source_vintage}` : HARRIS_VINTAGE,
-        inDistrict: resolved.isClearCreekIsd,
-        schoolName: resolved.schoolNames[0] ?? null,
+        vintage: row
+          ? `${HARRIS_VINTAGE}; units ${row.source_vintage}`
+          : HARRIS_VINTAGE,
+        inDistrict: stored.ok ? resolved.isClearCreekIsd : null,
+        schoolName: stored.ok ? resolved.schoolNames[0] ?? null : null,
       });
     }
   }
 
-  // In-district parcels first, then by address, so the common case is at the
-  // top and the "this is not actually Clear Creek" cases are still visible.
+  // In-district first, then unknown, then known-outside — so the common case
+  // leads and a definite "this is not Clear Creek" is not buried.
+  const rank = (value: boolean | null) => (value === true ? 0 : value === null ? 1 : 2);
   candidates.sort((a, b) => {
-    if (a.inDistrict !== b.inDistrict) return a.inDistrict ? -1 : 1;
+    const byDistrict = rank(a.inDistrict) - rank(b.inDistrict);
+    if (byDistrict !== 0) return byDistrict;
     return a.situs.localeCompare(b.situs);
   });
 
-  return { ok: true, candidates, partial };
+  const notes = [partial, harrisUnitsFailed
+    ? `Harris County taxing units could not be read (${harrisUnitsFailed}), so whether those parcels are in Clear Creek ISD is unknown rather than no.`
+    : null,
+  ].filter(Boolean);
+
+  return { ok: true, candidates, partial: notes.length ? notes.join(" ") : null };
 }

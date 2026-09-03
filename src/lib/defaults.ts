@@ -1,4 +1,5 @@
 import type { LookupStatus, ResolvedParcel } from "./lookups/types";
+import { LOAN_PROGRAMS } from "./loanPrograms";
 import { roundCents } from "./money";
 import type { LoanProgramId } from "./types";
 import {
@@ -67,6 +68,15 @@ export interface CalculatorState {
   isNewConstruction: boolean;
   /** Tax appraised value, when it differs from the purchase price. */
   taxAppraisedValueOverride: number | null;
+  /**
+   * Bill the tax at the purchase price rather than the appraisal roll.
+   *
+   * Deliberately the intent and not a copied value: the roll is what will be
+   * billed this year, but a buyer who wants the post-reassessment figure wants
+   * it to track whatever price they end up at. Storing the price itself left a
+   * stale number behind after any renegotiation and destroyed the roll value.
+   */
+  taxOnPurchasePrice: boolean;
   pidAnnualAssessment: number;
   monthlyMudUtility: number;
 
@@ -147,6 +157,26 @@ export type UpdateState = <K extends keyof CalculatorState>(
 export const STORAGE_KEY = "ccisd-mortgage-calculator-v1";
 
 /**
+ * Repairs state read back out of localStorage.
+ *
+ * The stored object is merged over the defaults, so a value written by an older
+ * build survives across upgrades — which is the point, and also the hazard.
+ * `programId` indexes straight into the loan-program table, so a stored id that
+ * no longer names a program (renamed, retired, or hand-edited) made
+ * `buildCalculatorInputs` read `defaultDownPaymentFraction` off `undefined` and
+ * take the whole page down with it. The calculator *is* the page, so there was
+ * no route back except clearing site data by hand.
+ *
+ * Only fields that index into a table need checking. Unknown assistance ids are
+ * already matched against the programme list and ignored, and an unknown
+ * `locationId` resolves to the first preset.
+ */
+export function reviveState(stored: CalculatorState): CalculatorState {
+  if (LOAN_PROGRAMS[stored.programId] != null) return stored;
+  return { ...stored, programId: DEFAULT_STATE.programId };
+}
+
+/**
  * Homeowners insurance is written against dwelling coverage, typically about
  * 78% of purchase price, not the full listing price.
  *
@@ -223,6 +253,7 @@ export const DEFAULT_STATE: CalculatorState = {
   annualFloodInsurance: 0,
   isNewConstruction: false,
   taxAppraisedValueOverride: null,
+  taxOnPurchasePrice: false,
   pidAnnualAssessment: 0,
   monthlyMudUtility: 0,
 

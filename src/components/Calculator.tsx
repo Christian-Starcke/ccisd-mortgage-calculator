@@ -1,11 +1,16 @@
 "use client";
 
 import { useDeferredValue, useMemo } from "react";
-import { buildCalculatorInputs, buildScenarioOptions } from "@/lib/buildFromState";
+import {
+  buildCalculatorInputs,
+  buildScenarioOptions,
+  resolveStateTaxUnits,
+} from "@/lib/buildFromState";
 import { calculateAffordability } from "@/lib/affordability";
 import {
   DEFAULT_STATE,
   STORAGE_KEY,
+  reviveState,
   estimateHomeownersInsurance,
   type CalculatorState,
 } from "@/lib/defaults";
@@ -60,6 +65,7 @@ export function Calculator() {
   const [state, setState] = usePersistentState<CalculatorState>(
     STORAGE_KEY,
     DEFAULT_STATE,
+    reviveState,
   );
 
   const update = <K extends keyof CalculatorState>(
@@ -527,7 +533,10 @@ function derive(state: CalculatorState) {
     propertyTax: detailScenario.propertyTax,
     monthlyWaterBill: detailScenario.monthly.mudUtility,
     hasParcel: state.resolvedParcel != null,
-    unknownRateCodes: state.resolvedParcel?.missingRateCodes ?? [],
+    // The engine's current view, not the parcel's snapshot: the snapshot never
+    // shrinks, so once the buyer priced the district the water card carried on
+    // calling it unpriced while the tax already billed it.
+    unknownRateCodes: resolveStateTaxUnits(state).missingRateCodes,
     taxEscrowMonths: detailScenario.closingCosts.taxEscrowMonths,
   });
 

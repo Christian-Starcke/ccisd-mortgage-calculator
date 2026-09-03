@@ -1,6 +1,7 @@
 "use client";
 
-import { formatPercent, formatUSD } from "@/lib/money";
+import { resolveStateTaxUnits } from "@/lib/buildFromState";
+import { formatPercent, formatUSD, roundToMatchTotal } from "@/lib/money";
 import type { ScenarioResult } from "@/lib/scenario";
 import type { AffordabilityResult } from "@/lib/affordability";
 import type { ReactNode } from "react";
@@ -61,6 +62,15 @@ export function PaymentSummary({
     ] as [string, number, string][]
   ).filter(([, amount]) => amount > 0);
 
+  /*
+   * The rows are shown in whole dollars and so is the total, so they are
+   * rounded together — otherwise the column visibly fails to add up.
+   */
+  const displayed = roundToMatchTotal(
+    segments.map(([, amount]) => amount),
+    monthly.total,
+  );
+
   const taxShare =
     monthly.total > 0 ? monthly.propertyTax / monthly.total : 0;
 
@@ -120,11 +130,11 @@ export function PaymentSummary({
       </div>
 
       <div className="mt-4 divide-y divide-ink-100">
-        {segments.map(([label, amount, color]) => (
+        {segments.map(([label, , color], index) => (
           <LineItem
             key={label}
             label={label}
-            amount={formatUSD(amount)}
+            amount={formatUSD(displayed[index], 0)}
             swatch={color}
             note={
               label === "Mortgage insurance" && scenario.pmiQuote
@@ -991,9 +1001,7 @@ export function RisksCard({
           lands. The 10% homestead cap does not stop this first reset.{" "}
           <button
             type="button"
-            onClick={() =>
-              update("taxAppraisedValueOverride", gap.purchasePrice)
-            }
+            onClick={() => update("taxOnPurchasePrice", true)}
             className="font-medium underline underline-offset-2"
           >
             Bill the tax at my purchase price instead
@@ -1029,18 +1037,24 @@ export function RisksCard({
     });
   }
 
-  if (parcel && parcel.missingRateCodes.length > 0) {
+  /*
+   * The parcel's own list is a snapshot from the lookup and never shrinks, so
+   * reading it kept this card up after the buyer had supplied the rate — still
+   * asserting the district was billing zero when the payment already included
+   * it. This is the engine's current view instead.
+   */
+  const unpricedUnits = resolveStateTaxUnits(state).missingRateCodes;
+  if (unpricedUnits.length > 0) {
     items.push({
       key: "missing-rates",
       tone: "bad",
       title: "A taxing district here has no published rate",
       body: (
         <>
-          {parcel.missingRateCodes.map((r) => r.name).join(", ")} bills this
-          parcel, but the county publishes no rate for it — it is collected
-          privately. Enter the rate from the appraisal record under More
-          options. A district left at zero is the largest possible
-          understatement of this payment.
+          {unpricedUnits.map((r) => r.name).join(", ")} bills this parcel, but
+          the county publishes no rate for it — it is collected privately. Enter
+          the rate from the appraisal record under More options. A district left
+          at zero is the largest possible understatement of this payment.
         </>
       ),
     });

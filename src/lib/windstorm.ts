@@ -120,46 +120,42 @@ export function assessWindExposure(args: {
   const { county, taxUnitCodes } = args;
   const codes = new Set(taxUnitCodes.map((c) => c.trim().toUpperCase()));
 
-  if (county === "galveston") {
-    return build("designated", {
-      separatePolicyRequired: true,
-      verifyByAddress: false,
-      note: "Galveston County is entirely inside the designated catastrophe area, so wind and hail are excluded from the homeowners policy and written separately. Both premiums are in the payment below. Budget for two policies plus flood.",
-    });
-  }
+  if (county === "galveston") return assessExposure("designated");
 
   const inBoundaryCity = [...codes].some((c) =>
     HARRIS_BOUNDARY_CITY_CODES.has(c),
   );
-  if (inBoundaryCity) {
-    return build("boundary-uncertain", {
-      separatePolicyRequired: true,
-      verifyByAddress: true,
-      note: "This address is in a Harris County city that is partly inside the designated catastrophe area. Eligibility applies only east of State Highway 146, so it turns on the exact address rather than the city. A separate windstorm policy is assumed here, which is the conservative reading; confirm with the Texas Department of Insurance, because if the address falls west of 146 this premium comes off the payment entirely.",
-    });
-  }
-
-  return build("inland", {
-    separatePolicyRequired: false,
-    verifyByAddress: false,
-    note: "Outside the designated catastrophe area, so wind and hail stay on the homeowners policy and no separate windstorm premium applies. The policy will still carry a percentage named-storm deductible, typically 1% to 2% of dwelling coverage, which is a deductible rather than a monthly cost and so does not appear in the payment.",
-  });
+  return assessExposure(inBoundaryCity ? "boundary-uncertain" : "inland");
 }
 
-function build(
-  exposure: WindExposure,
-  rest: Pick<
-    WindstormAssessment,
-    "separatePolicyRequired" | "verifyByAddress" | "note"
-  >,
-): WindstormAssessment {
+const EXPOSURE_NOTES: Record<WindExposure, string> = {
+  designated:
+    "Galveston County is entirely inside the designated catastrophe area, so wind and hail are excluded from the homeowners policy and written separately. Both premiums are in the payment below. Budget for two policies plus flood.",
+  "boundary-uncertain":
+    "This address is in a Harris County city that is partly inside the designated catastrophe area. Eligibility applies only east of State Highway 146, so it turns on the exact address rather than the city. A separate windstorm policy is assumed here, which is the conservative reading; confirm with the Texas Department of Insurance, because if the address falls west of 146 this premium comes off the payment entirely.",
+  inland:
+    "Outside the designated catastrophe area, so wind and hail stay on the homeowners policy and no separate windstorm premium applies. The policy will still carry a percentage named-storm deductible, typically 1% to 2% of dwelling coverage, which is a deductible rather than a monthly cost and so does not appear in the payment.",
+};
+
+/**
+ * Everything that follows from an exposure, in one place.
+ *
+ * Whether a separate policy is needed, whether the buyer has to check their own
+ * address, and both rates are all functions of the exposure alone, so they are
+ * derived here rather than passed in at each call site. They used to be, and
+ * the copies drifted.
+ */
+export function assessExposure(exposure: WindExposure): WindstormAssessment {
+  const separatePolicyRequired = exposure !== "inland";
   return {
     exposure,
+    separatePolicyRequired,
+    verifyByAddress: exposure === "boundary-uncertain",
     homeownersRatePerThousand: HOMEOWNERS_RATE_PER_THOUSAND[exposure],
-    windstormRatePerThousand: rest.separatePolicyRequired
+    windstormRatePerThousand: separatePolicyRequired
       ? DEFAULT_WINDSTORM_RATE_PER_THOUSAND
       : 0,
-    ...rest,
+    note: EXPOSURE_NOTES[exposure],
   };
 }
 

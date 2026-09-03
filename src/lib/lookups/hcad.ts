@@ -172,7 +172,9 @@ export async function searchHarrisParcels(
       yearBuilt: null,
       livingSqFt: null,
       vintage: HARRIS_VINTAGE,
-      inDistrict: false,
+      // Unknown until the caller joins the stored footprint. Never false:
+      // that would be a finding, and none has been made yet.
+      inDistrict: null,
       schoolName: null,
     });
   }

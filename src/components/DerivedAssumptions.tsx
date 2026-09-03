@@ -7,6 +7,8 @@ import {
   resolveTaxingUnits,
   utilityDistrictsForLocation,
 } from "@/data/clearCreekTaxRates";
+import { resolveStateTaxUnits } from "@/lib/buildFromState";
+import { applyWindExposure, windExposureFor } from "@/lib/windExposureState";
 import {
   DWELLING_COVERAGE_FRACTION,
   estimateHomeownersInsurance,
@@ -19,7 +21,6 @@ import {
 import { formatUSD } from "@/lib/money";
 import { calculatePropertyTax } from "@/lib/propertyTax";
 import {
-  assessWindExposure,
   estimateWindstormPremium,
   HOMEOWNERS_RATE_PER_THOUSAND,
 } from "@/lib/windstorm";
@@ -83,19 +84,21 @@ export function DerivedAssumptions({
     state.insuranceRatePerThousand,
   );
   const parcel = state.resolvedParcel;
-  const usedLookup = parcel != null;
+  /*
+   * Whether the parcel is actually billing the tax, which is not the same as
+   * whether a parcel is selected — see `resolveStateTaxUnits`. Every use below
+   * is about the tax section, so they all want this rather than `parcel != null`.
+   */
+  const usedLookup = resolveStateTaxUnits(state).fromParcel;
+  /*
+   * Every unit that arrived without a rate keeps its field, including ones the
+   * buyer has since priced — the field is how they change it, so driving it off
+   * the live list would make it disappear the moment it took effect.
+   */
   const missingCodes = parcel?.missingRateCodes ?? [];
   // Exposure comes from the parcel when there is one, and from the location
   // preset otherwise, so the hint text is right before an address is typed.
-  const windstorm = parcel
-    ? assessWindExposure({
-        county: parcel.ref.county,
-        taxUnitCodes: parcel.taxUnitCodes,
-      })
-    : {
-        separatePolicyRequired: preset.windExposure !== "inland",
-        verifyByAddress: preset.windExposure === "boundary-uncertain",
-      };
+  const windstorm = windExposureFor({ parcel, locationId: state.locationId });
   const annualWindstorm = estimateWindstormPremium({
     purchasePrice: state.purchasePrice,
     dwellingCoverageFraction: DWELLING_COVERAGE_FRACTION,
@@ -132,22 +135,22 @@ export function DerivedAssumptions({
                   const next = findLocationPreset(value);
                   update("utilityDistrictId", next.defaultUtilityDistrictId);
                   update("manualUtilityRatePer100", null);
-                  // Location carries the county and the city, so it decides
-                  // wind exposure — and with it both insurance rates. Leaving
-                  // a League City windstorm premium on a Webster address
-                  // would overstate the payment by about $200 a month.
-                  update(
-                    "separateWindstormPolicy",
-                    next.windExposure !== "inland",
-                  );
-                  update(
-                    "windstormUncertain",
-                    next.windExposure === "boundary-uncertain",
-                  );
-                  update(
-                    "insuranceRatePerThousand",
-                    HOMEOWNERS_RATE_PER_THOUSAND[next.windExposure],
-                  );
+                  /*
+                   * Location carries the county and the city, so with no
+                   * parcel it decides wind exposure — and with it both
+                   * insurance rates. Leaving a League City windstorm premium
+                   * on a Webster address would overstate the payment by about
+                   * $200 a month.
+                   *
+                   * With a parcel it decides nothing: the parcel's own county
+                   * and taxing units are the better evidence, and letting this
+                   * dropdown override them silently dropped a mandatory
+                   * windstorm premium on Galveston parcels.
+                   */
+                  applyWindExposure(update, {
+                    parcel: state.resolvedParcel,
+                    locationId: value,
+                  });
                 }}
                 options={LOCATION_PRESETS.map((option) => ({
                   value: option.id,
@@ -257,6 +260,16 @@ export function DerivedAssumptions({
               onChange={(checked) => update("isNewConstruction", checked)}
               label="New construction"
               hint="Turns on the promulgated owner's title premium for the buyer, which is the usual new-build custom."
+            />
+            <Toggle
+              checked={state.taxOnPurchasePrice}
+              onChange={(checked) => update("taxOnPurchasePrice", checked)}
+              label="Bill the tax at the purchase price"
+              hint={
+                state.taxOnPurchasePrice
+                  ? "On: the tax follows your price, which is roughly what the district will reassess to for the next tax year. Turn it off to see the bill you will actually get this year."
+                  : "Off: the tax uses the appraisal roll, which is what will be billed this year. Turn it on to see the steady state after the district reassesses."
+              }
             />
             <Field
               label="Tax appraised value"
@@ -431,23 +444,33 @@ export function DerivedAssumptions({
               checked={state.separateWindstormPolicy}
               onChange={(checked) => {
                 update("separateWindstormPolicy", checked);
-                // The homeowners rate moves with it: inside the designated
-                // area the policy excludes wind, so it is a cheaper policy.
-                // Leaving the all-perils rate on top of a windstorm premium
-                // would charge for the same peril twice.
+                /*
+                 * The homeowners rate moves with it: where wind is written
+                 * separately the homeowners policy excludes it and so is
+                 * cheaper, and leaving the all-perils rate on top of a
+                 * windstorm premium would charge for the same peril twice.
+                 *
+                 * This used to pick between the designated and inland rates
+                 * only, so forcing the toggle on in Seabrook or Pasadena — the
+                 * two cities where the answer genuinely turns on the address —
+                 * dropped their $8.50 boundary rate and billed $7.00.
+                 */
                 update(
                   "insuranceRatePerThousand",
-                  HOMEOWNERS_RATE_PER_THOUSAND[checked ? "designated" : "inland"],
+                  HOMEOWNERS_RATE_PER_THOUSAND[
+                    !checked
+                      ? "inland"
+                      : windstorm.exposure === "inland"
+                        ? // Forced on somewhere the designation does not
+                          // reach: price the narrower policy, since that is
+                          // what the buyer is asserting they will buy.
+                          "designated"
+                        : windstorm.exposure
+                  ],
                 );
               }}
               label="Separate windstorm policy required"
-              hint={
-                state.windstormUncertain
-                  ? "This city is only partly inside the designated catastrophe area — it applies east of Highway 146. Assumed on, which is the conservative reading. Turn it off if your address is west of 146."
-                  : windstorm.separatePolicyRequired
-                    ? "Galveston County is entirely inside the designated catastrophe area, so wind and hail come off the homeowners policy and are written separately."
-                    : "Outside the designated area, so wind stays on the homeowners policy. The policy still carries a named-storm deductible."
-              }
+              hint={windstorm.note}
             />
             {state.separateWindstormPolicy && (
               <Field

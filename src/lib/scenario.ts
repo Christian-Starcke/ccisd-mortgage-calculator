@@ -136,6 +136,11 @@ const DTI_GUIDELINE_MAX: Record<string, number> = {
   va: 0.6,
 };
 
+/** Keeps a ratio at four decimals without turning Infinity into NaN. */
+function round4(value: number): number {
+  return Number.isFinite(value) ? roundCents(value * 10000) / 10000 : value;
+}
+
 export function buildScenario(
   inputs: CalculatorInputs,
   options: ScenarioOptions,
@@ -290,11 +295,23 @@ export function buildScenario(
     monthlyPid;
 
   const grossMonthlyIncome = buyer.annualIncome / 12;
-  const provisionalBackEnd =
+  /*
+   * With no income the ratio is unbounded, not zero.
+   *
+   * Zero was the original divide-by-zero guard and it is exactly the wrong
+   * sentinel: it reads as "no debt burden", so the affordability solver's
+   * `backEnd <= target` test passed and debt-to-income never bound. A buyer
+   * with no income was told they could afford four hundred thousand dollars.
+   */
+  const ratio = (payment: number) =>
     grossMonthlyIncome > 0
-      ? (provisionalHousingPayment + buyer.monthlyDebtPayments) /
-        grossMonthlyIncome
-      : 0;
+      ? payment / grossMonthlyIncome
+      : payment > 0
+        ? Number.POSITIVE_INFINITY
+        : 0;
+  const provisionalBackEnd = ratio(
+    provisionalHousingPayment + buyer.monthlyDebtPayments,
+  );
 
   const evaluations = options.assistancePrograms.map((assistanceProgram) =>
     evaluateAssistance({
@@ -305,10 +322,7 @@ export function buildScenario(
       purchasePrice,
       loanAmount: totalLoanAmount,
       annualInterestAtOrigination: firstYearInterest,
-      frontEndDti:
-        grossMonthlyIncome > 0
-          ? provisionalHousingPayment / grossMonthlyIncome
-          : 0,
+      frontEndDti: ratio(provisionalHousingPayment),
       backEndDti: provisionalBackEnd,
     }),
   );
@@ -495,17 +509,8 @@ export function buildScenario(
   const guidelineMax = DTI_GUIDELINE_MAX[program.id] ?? 0.5;
   const dti: DtiResult = {
     grossMonthlyIncome,
-    frontEnd:
-      grossMonthlyIncome > 0
-        ? roundCents((monthlyTotal / grossMonthlyIncome) * 10000) / 10000
-        : 0,
-    backEnd:
-      grossMonthlyIncome > 0
-        ? roundCents(
-            ((monthlyTotal + buyer.monthlyDebtPayments) / grossMonthlyIncome) *
-              10000,
-          ) / 10000
-        : 0,
+    frontEnd: round4(ratio(monthlyTotal)),
+    backEnd: round4(ratio(monthlyTotal + buyer.monthlyDebtPayments)),
     withinGuidelines: false,
     guidelineMax,
   };

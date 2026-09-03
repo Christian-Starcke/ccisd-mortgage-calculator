@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { findLocationPreset } from "@/data/clearCreekTaxRates";
 import {
   DEFAULT_MUD_UTILITY_MONTHLY,
   type CalculatorState,
@@ -13,10 +12,7 @@ import {
   type AddressCandidate,
   type ResolvedParcel,
 } from "@/lib/lookups/types";
-import {
-  assessWindExposure,
-  HOMEOWNERS_RATE_PER_THOUSAND,
-} from "@/lib/windstorm";
+import { applyWindExposure } from "@/lib/windExposureState";
 import { districtWaterBillFor } from "@/lib/householdUtilities";
 import { Badge, Callout, Field, TextInput } from "./ui";
 
@@ -30,22 +26,18 @@ function clearParcelSelection(update: UpdateState, locationId: string) {
   update("lookupError", null);
   update("usdaAddressConfirmed", null);
   update("taxAppraisedValueOverride", null);
+  update("taxOnPurchasePrice", false);
   update("monthlyMudUtility", 0);
   update("unknownRateOverrides", {});
   update("inFloodZone", false);
   update("annualFloodInsurance", 0);
   update("isNewConstruction", false);
 
-  // Wind exposure came from the parcel, so it has to go back to whatever the
-  // location preset implies. Leaving a League City windstorm premium attached
-  // to the next address the buyer types would be worse than having none.
-  const preset = findLocationPreset(locationId);
-  update("separateWindstormPolicy", preset.windExposure !== "inland");
-  update("windstormUncertain", preset.windExposure === "boundary-uncertain");
-  update(
-    "insuranceRatePerThousand",
-    HOMEOWNERS_RATE_PER_THOUSAND[preset.windExposure],
-  );
+  // Wind exposure came from the parcel, so with the parcel gone it has to go
+  // back to whatever the location preset implies. Leaving a League City
+  // windstorm premium attached to the next address the buyer types would be
+  // worse than having none.
+  applyWindExposure(update, { parcel: null, locationId });
 }
 
 function applyParcel(
@@ -97,13 +89,7 @@ function applyParcel(
 
   // Windstorm follows the county and the city, so it is derived from the
   // parcel's own taxing units rather than from the address string.
-  const wind = assessWindExposure({
-    county: parcel.ref.county,
-    taxUnitCodes: parcel.taxUnitCodes,
-  });
-  update("separateWindstormPolicy", wind.separatePolicyRequired);
-  update("windstormUncertain", wind.verifyByAddress);
-  update("insuranceRatePerThousand", wind.homeownersRatePerThousand);
+  applyWindExposure(update, { parcel, locationId: parcel.inferredLocationId });
 
   const year = new Date().getFullYear();
   update(
@@ -276,9 +262,11 @@ export function AddressLookup({
                 {candidate.totalValue
                   ? ` · appraised ${formatUSD(candidate.totalValue, 0)}`
                   : " · no appraised value"}
-                {candidate.inDistrict
+                {candidate.inDistrict === true
                   ? ""
-                  : ` · ${candidate.schoolName ?? "not Clear Creek ISD"}`}
+                  : candidate.inDistrict === null
+                    ? " · district unknown"
+                    : ` · ${candidate.schoolName ?? "not Clear Creek ISD"}`}
               </span>
             </button>
           ))}

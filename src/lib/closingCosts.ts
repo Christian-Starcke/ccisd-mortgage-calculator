@@ -185,6 +185,26 @@ export function calculateClosingCosts(
 
   const lineItems: ClosingCostLineItem[] = [];
 
+  /*
+   * No price means no transaction, so no costs.
+   *
+   * Most of what follows scales off the price or the loan, but a good deal of
+   * it is flat — the title company's fee, the appraisal, the credit report —
+   * and those added up to nearly $2,700 of closing costs on a purchase that
+   * did not exist. An empty form should read as empty, not as broken.
+   */
+  if (purchasePrice <= 0) {
+    return {
+      lineItems,
+      closingCostsTotal: 0,
+      prepaidsAndEscrowTotal: 0,
+      discountPointsCost: 0,
+      grandTotal: 0,
+      taxEscrowMonths: taxEscrowMonthsAtClosing(closingDate, a.taxEscrowCushionMonths),
+      prepaidInterestDayCount: 0,
+    };
+  }
+
   const push = (item: ClosingCostLineItem) => {
     if (item.amount > 0) lineItems.push(item);
   };

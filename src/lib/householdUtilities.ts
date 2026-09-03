@@ -206,15 +206,16 @@ const CITY_WATER_RATES: Record<string, WaterProviderRate> = {
 /**
  * Cities in this district whose own utility supplies no water.
  *
- * Worth stating because it is counter-intuitive and it is most of them. Kemah
- * has no city water at all — Galveston County WCID 12 serves most of it and
- * Bayview MUD the rest. Clear Lake Shores is entirely inside WCID 12. El Lago
- * is 96% inside Harris County WCID 50, and Taylor Lake Village 90% inside the
- * Clear Lake City Water Authority.
+ * Counter-intuitive, and it is most of them. Kemah has no city water at all —
+ * Galveston County WCID 12 serves most of it and Bayview MUD the rest. Clear
+ * Lake Shores is entirely inside WCID 12. El Lago is 96% inside Harris County
+ * WCID 50, and Taylor Lake Village 90% inside the Clear Lake City Water
+ * Authority.
  *
- * They never reach the city rate table above, because a parcel carrying any of
- * those districts resolves as district-served — which is the correct answer and
- * also why their city schedules were never worth chasing.
+ * They deliberately have no entry in the city table above, because a parcel
+ * carrying one of those districts resolves as district-served, which is the
+ * right answer. Exported so a test can hold that true rather than leaving it
+ * as a comment that can quietly stop being so.
  */
 export const CITIES_WITHOUT_CITY_WATER = [
   "C38", // Kemah
@@ -222,6 +223,11 @@ export const CITIES_WITHOUT_CITY_WATER = [
   "056", // El Lago
   "082", // Taylor Lake Village
 ] as const;
+
+/** Whether the city table has an entry for a taxing-unit code. */
+export function hasCityWaterSchedule(code: string): boolean {
+  return CITY_WATER_RATES[code] !== undefined;
+}
 
 /**
  * Utility districts whose own rate schedule has been read.

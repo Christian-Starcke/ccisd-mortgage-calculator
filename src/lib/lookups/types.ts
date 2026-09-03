@@ -41,12 +41,18 @@ export interface AddressCandidate {
    */
   vintage: string;
   /**
-   * False when the parcel exists but Clear Creek ISD does not bill it. These
-   * are still shown, and labelled: a buyer who typed a Friendswood or south
-   * League City address and is about to find out it is Friendswood ISD or
-   * Dickinson ISD needs to see that, not an empty result.
+   * Whether Clear Creek ISD bills the parcel.
+   *
+   * `false` is a finding: the parcel exists and another district bills it,
+   * which a buyer about to discover their Friendswood address is Friendswood
+   * ISD needs to see rather than getting an empty result.
+   *
+   * `null` means nobody could check. Harris candidates get their taxing units
+   * from the stored footprint, so if that lookup fails there is no basis for
+   * an answer either way — and reporting `false` there would tell a Webster
+   * buyer their house is outside the district because a database was down.
    */
-  inDistrict: boolean;
+  inDistrict: boolean | null;
   /** The school district billing the parcel, when it is not Clear Creek. */
   schoolName: string | null;
 }

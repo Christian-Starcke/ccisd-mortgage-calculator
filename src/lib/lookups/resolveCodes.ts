@@ -199,8 +199,19 @@ export function resolveUnitsFromCodes(
       continue;
     }
 
+    /*
+      * A non-positive override is a blank field, not a rate of zero.
+      *
+      * The input starts at 0 and a buyer who types into it and clears it again
+      * leaves 0 behind. Honouring that as a real rate would drop a MUD from
+      * the bill and, worse, take the "this district has no published rate"
+      * warning down with it — silently understating the payment by the largest
+      * single amount it can be understated by. A district that genuinely levies
+      * nothing carries `ratePer100: 0` in the catalog and never needs asking
+      * about in the first place.
+      */
     const override = rateOverrides[code];
-    const rate = override ?? record.ratePer100;
+    const rate = override != null && override > 0 ? override : record.ratePer100;
     if (rate == null || rate < 0) {
       missingRateCodes.push(record);
       continue;

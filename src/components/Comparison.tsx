@@ -61,7 +61,17 @@ export function ProgramComparison({
   return (
     <Card
       title="Every loan program, side by side"
-      subtitle={`All priced on the same ${formatUSD(state.purchasePrice)} home at ${formatPercent(state.interestRate, 3)}. Real quotes will differ by program, so treat the ordering as the signal rather than the exact dollars.`}
+      /*
+       * Say that assistance is excluded, because it is. Every row is priced
+       * with no assistance so the programs compare on their own terms, which
+       * meant the row badged "Selected" showed a payment that did not match
+       * the one at the top of the page, with nothing to explain the gap.
+       */
+      subtitle={`All priced on the same ${formatUSD(state.purchasePrice)} home at ${formatPercent(state.interestRate, 3)}${
+        state.selectedAssistanceIds.length > 0
+          ? ", and without down-payment assistance so the programs compare on their own terms — your payment above includes it"
+          : ""
+      }. Real quotes will differ by program, so treat the ordering as the signal rather than the exact dollars.`}
     >
       {cheapestTotal && (
         <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">

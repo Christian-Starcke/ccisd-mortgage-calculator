@@ -645,16 +645,24 @@ export function Disclosure({
 export function usePersistentState<T>(
   key: string,
   initial: T,
+  /**
+   * Repairs a stored value before it is trusted. Parsing successfully is not
+   * the same as being usable: a field that indexes into a table can name
+   * something that no longer exists, and the merge below will happily carry it
+   * through. Anything that throws in here falls back to the defaults.
+   */
+  revive: (stored: T) => T = (stored) => stored,
 ): [T, (value: T | ((previous: T) => T)) => void] {
   const [state, setState] = useState<T>(() => {
     if (typeof window === "undefined") return initial;
     try {
       const stored = window.localStorage.getItem(key);
+      if (!stored) return initial;
       // Spreading over the defaults means a stored value written by an older
       // version of the app still picks up any newly added fields.
-      return stored ? { ...initial, ...JSON.parse(stored) } : initial;
+      return revive({ ...initial, ...JSON.parse(stored) });
     } catch {
-      // A corrupt or unavailable store should never break the calculator.
+      // A corrupt or unusable store should never break the calculator.
       return initial;
     }
   });
