@@ -22,7 +22,7 @@ import {
   type RankedPath,
 } from "@/lib/pathRank";
 import { buildScenario, type ScenarioResult } from "@/lib/scenario";
-import { calculatePropertyTax } from "@/lib/propertyTax";
+import { assessAppraisalGap } from "@/lib/appraisalGap";
 import { assessWaterService } from "@/lib/waterService";
 import { estimateHouseholdUtilities } from "@/lib/householdUtilities";
 import {
@@ -672,8 +672,14 @@ function buildSavingsActions({
    * the current roll, which is what will really be billed until the protest
    * succeeds.
    */
-  const appraised = scenario.propertyTax.appraisedValue;
-  const overRoll = appraised - scenario.purchasePrice;
+  const gap = assessAppraisalGap({
+    appraisedValue: scenario.propertyTax.appraisedValue,
+    purchasePrice: scenario.purchasePrice,
+    units: scenario.propertyTax.lineItems.map((row) => row.unit),
+    claimHomestead: scenario.propertyTax.homesteadApplied,
+    taxEscrowMonths: scenario.closingCosts.taxEscrowMonths,
+  });
+
   /**
    * Base for the recurring protest tip below. If the value is first corrected
    * down to the sale price, every later protest argues against that lower
@@ -681,23 +687,20 @@ function buildSavingsActions({
    * roll — the ranked list sums their values and would double-count.
    */
   let recurringProtestBase = scenario.propertyTax.annualTax;
-  if (scenario.propertyTax.annualTax > 0 && overRoll / scenario.purchasePrice > 0.05) {
-    const atSalePrice = calculatePropertyTax({
-      appraisedValue: scenario.purchasePrice,
-      units: scenario.propertyTax.lineItems.map((row) => row.unit),
-      claimHomestead: scenario.propertyTax.homesteadApplied,
+
+  // Only the roll-above-price direction is a saving. A roll below the price is
+  // a risk, and it is raised as a scenario warning rather than smuggled into a
+  // list of ways to save money.
+  if (gap.direction === "roll-above-price" && gap.annualAtRiskOrSaving < 0) {
+    const saving = -gap.annualAtRiskOrSaving;
+    recurringProtestBase = gap.annualTaxAtPrice;
+    actions.push({
+      title: "Protest down to what you actually paid",
+      detail: `The appraisal district has this parcel at ${formatUSD(gap.appraisedValue, 0)}, which is ${formatUSD(gap.gap, 0)} above your ${formatUSD(gap.purchasePrice, 0)} price. The payment above bills the roll, because that is what you will be billed until this is fixed. A recent arm's-length sale below the appraised value is the strongest evidence an appraisal review board sees — it is not a comparable sale, it is the sale — so bring your closing statement. Getting the value down to your purchase price is ${formatUSD(saving / 12)} a month, and it takes ${formatUSD(gap.escrowEffect < 0 ? -gap.escrowEffect : gap.escrowEffect)} off the tax escrow at closing too.`,
+      value: saving * horizon,
+      valueLabel: `${formatUSD(saving)}/yr`,
+      effort: "paperwork",
     });
-    const saving = scenario.propertyTax.annualTax - atSalePrice.annualTax;
-    if (saving > 0) {
-      recurringProtestBase = atSalePrice.annualTax;
-      actions.push({
-        title: "Protest down to what you actually paid",
-        detail: `The appraisal district has this parcel at ${formatUSD(appraised, 0)}, which is ${formatUSD(overRoll, 0)} above your ${formatUSD(scenario.purchasePrice, 0)} price. The payment above bills the roll, because that is what you will be billed until this is fixed. A recent arm's-length sale below the appraised value is the strongest evidence an appraisal review board sees — it is not a comparable sale, it is the sale — so bring your closing statement. Getting the value down to your purchase price is ${formatUSD(saving / 12)} a month.`,
-        value: saving * horizon,
-        valueLabel: `${formatUSD(saving)}/yr`,
-        effort: "paperwork",
-      });
-    }
   }
 
   if (recurringProtestBase > 0) {

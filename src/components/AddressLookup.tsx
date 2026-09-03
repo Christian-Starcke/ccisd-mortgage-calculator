@@ -17,6 +17,7 @@ import {
   assessWindExposure,
   HOMEOWNERS_RATE_PER_THOUSAND,
 } from "@/lib/windstorm";
+import { assessAppraisalGap } from "@/lib/appraisalGap";
 import { Badge, Callout, Field, TextInput } from "./ui";
 
 const CCISD_MAP_URL = "https://www.ccisd.net/district-map";
@@ -190,6 +191,18 @@ export function AddressLookup({
   };
 
   const parcel = state.resolvedParcel;
+
+  // Which way the roll and the price disagree decides whether this is an
+  // opportunity or a risk, and the two read very differently to a buyer.
+  const gap =
+    parcel?.totalValue != null && state.purchasePrice > 0
+      ? assessAppraisalGap({
+          appraisedValue: state.taxAppraisedValueOverride ?? parcel.totalValue,
+          purchasePrice: state.purchasePrice,
+          units: parcel.taxingUnits,
+          claimHomestead: state.claimHomestead,
+        })
+      : null;
 
   return (
     <div className="space-y-3">
@@ -393,21 +406,65 @@ export function AddressLookup({
             </Callout>
           )}
 
-          {parcel.totalValue != null &&
-            state.purchasePrice > 0 &&
-            Math.abs(parcel.totalValue - state.purchasePrice) /
-              state.purchasePrice >
-              0.15 && (
-              <Callout
-                tone="warn"
-                title="Appraised value and listing price diverge"
+          {gap?.direction === "roll-below-price" && (
+            <Callout
+              tone="bad"
+              title="The tax below will probably go up after you buy"
+            >
+              The appraisal district has this parcel at{" "}
+              {formatUSD(gap.appraisedValue, 0)} against a price of{" "}
+              {formatUSD(gap.purchasePrice, 0)} — {formatUSD(-gap.gap, 0)} below
+              what you are paying. The payment below bills the current roll,
+              because that is what will be billed this year, but a sale is the
+              strongest evidence of value there is and the district normally
+              reassesses toward the price for the next tax year. At your price
+              the tax is{" "}
+              <strong>{formatUSD(gap.monthlyAtRiskOrSaving)} a month more</strong>
+              , so treat the figure below as the first year rather than the
+              steady state. The 10% homestead cap does not stop this first
+              reset: it only applies once you have held the homestead a full
+              year.{" "}
+              <button
+                type="button"
+                onClick={() =>
+                  update("taxAppraisedValueOverride", gap.purchasePrice)
+                }
+                className="font-medium underline underline-offset-2"
               >
-                The appraisal district has this parcel at{" "}
-                {formatUSD(parcel.totalValue, 0)} against a listing price of{" "}
-                {formatUSD(state.purchasePrice, 0)}. Tax is estimated from the
-                appraised value; the loan is sized from the price. New
-                construction is often assessed on an unimproved lot the first
-                year.
+                Bill the tax at my purchase price instead
+              </button>
+              .
+            </Callout>
+          )}
+
+          {gap?.direction === "roll-above-price" && (
+            <Callout
+              tone="good"
+              title="The tax below is higher than your price supports"
+            >
+              The appraisal district has this parcel at{" "}
+              {formatUSD(gap.appraisedValue, 0)} against a price of{" "}
+              {formatUSD(gap.purchasePrice, 0)} — {formatUSD(gap.gap, 0)} above
+              what you are paying. That runs in your favour: a recent
+              arm&apos;s-length sale below the appraised value is the strongest
+              evidence an appraisal review board sees, so bring your closing
+              statement and protest. Getting the value down to your price is{" "}
+              <strong>
+                {formatUSD(-gap.monthlyAtRiskOrSaving)} a month
+              </strong>
+              . The payment below still bills the roll, because that is what you
+              will be billed until the protest succeeds.
+            </Callout>
+          )}
+
+          {parcel.totalValue != null &&
+            parcel.improvementValue === 0 &&
+            (parcel.landValue ?? 0) > 0 && (
+              <Callout tone="warn" title="Assessed as an unimproved lot">
+                The record shows land value but no improvement value, which is
+                how new construction is usually assessed for its first year.
+                The tax below is a bare-lot bill and will rise sharply once the
+                house is on the roll — by much more than the gap above.
               </Callout>
             )}
 
