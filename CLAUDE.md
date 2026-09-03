@@ -51,6 +51,32 @@ $100.
   check in `clearCreekTaxRates.ts` that throws instead.
 - Preset district defaults come from the parcel data, not from intuition. Query
   which district actually co-occurs with each city before changing one.
+- **The parcel outranks the location dropdown.** Wind exposure comes from
+  `windExposureFor({parcel, locationId})` in `src/lib/windExposureState.ts`,
+  which prefers the parcel's own county and taxing units and falls back to the
+  preset only when there is no parcel. The dropdown used to write exposure
+  straight into state, so changing it after a parcel resolved silently dropped a
+  windstorm premium Galveston property cannot do without. Never set
+  `separateWindstormPolicy`, `windstormUncertain` or `insuranceRatePerThousand`
+  by hand — call `applyWindExposure`.
+- **A resolved parcel is not a billable parcel.** A Harris account with no row in
+  the stored footprint is a real property Clear Creek ISD does not bill: it
+  resolves fine and carries no taxing units, so the tax falls back to the preset.
+  Anything that needs to know which is billing must read
+  `resolveStateTaxUnits(state).fromParcel`, never `resolvedParcel != null`.
+- **`parcel.missingRateCodes` is a snapshot and never shrinks.** The rate the
+  buyer types is applied client-side, not re-fetched, so read
+  `resolveStateTaxUnits(state).missingRateCodes` for anything that reports on
+  unpriced districts. The exception is the input field itself, which has to keep
+  showing for a unit already priced or it would vanish as it took effect.
+- **A rate override of 0 means the field is blank, not that the rate is zero.**
+  The input starts at 0, so honouring it would drop a MUD from the bill and take
+  the warning down with it.
+- **Storage is revived before it is trusted** (`reviveState` in `defaults.ts`).
+  Stored state is merged over the defaults so older inputs survive an upgrade;
+  a `programId` that no longer names a program used to read a field off
+  `undefined` and blank the whole page. Add a check here for any new field that
+  indexes into a table.
 
 ## Windstorm is a first-class payment line
 
@@ -256,3 +282,24 @@ Annual, each October (rates adopt by Sept 30; HCAD certifies mid-August).
 `npm run ingest:parcels`, then re-verify `galvestonTaxUnitCodes.ts` against the
 current GCAD PDF by hand. Needs ~1.5 GB of source drops in `data-drop/`; see the
 README. `--dry-run` on the ingest parses without writing.
+
+## Local environment
+
+`.env.local` needs `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` or every
+Galveston search returns "The parcel database is not configured" while Harris
+keeps working — a partial result, not an error, so it is easy to misread as a
+data problem. The Vercel CLI rewrites this file when it pulls env vars, which
+has silently dropped both keys before; check them before debugging a lookup.
+
+## Driving the UI when auditing
+
+Two lessons from doing it badly:
+
+- Regexing `innerText` for line items loses rows and mislabels them, because
+  `LineItem` renders a note beneath the label. Walk
+  `div.items-baseline.justify-between` and take the first child for the label
+  and the last for the amount.
+- Collapsed `<details>` contribute nothing to `innerText`, so a hint you are
+  looking for may simply be folded. Set `d.open = true` on all of them first.
+- Check what is actually serving the port. A stale `next start` will happily
+  serve a build from before your change and make a working fix look broken.
