@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ELECTRICITY_RATE_PER_KWH,
+  districtWaterBillFor,
   estimateHouseholdUtilities,
 } from "@/lib/householdUtilities";
 import { buildCalculatorInputs, buildScenarioOptions } from "@/lib/buildFromState";
@@ -204,9 +205,7 @@ describe("water, sewer and refuse follow the supplier", () => {
     );
   });
 
-  it("marks a city whose schedule was not read at all as an estimate", () => {
-    // Nassau Bay is genuinely city-served — no parcel in it is in a district —
-    // but its schedule has not been read.
+  it("uses Nassau Bay's own rates, where usage is charged from gallon one", () => {
     const u = estimateHouseholdUtilities({
       ...BASE,
       service: "city",
@@ -216,6 +215,49 @@ describe("water, sewer and refuse follow the supplier", () => {
       ],
     });
     expect(u.providerName).toBe("City of Nassau Bay");
+    expect(item(u, "water-sewer")!.confidence).toBe("sourced");
+    // $15.00 + 5x$3.99 water, $16.98 + 5x$2.95 sewer. No free allowance.
+    expect(item(u, "water-sewer")!.monthly).toBeCloseTo(66.68, 2);
+  });
+
+  it("uses Pasadena's FY 2026 blocks, with sewer at 90% of water", () => {
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "city",
+      taxingUnits: [
+        requireUnit("harris", "027"),
+        requireUnit("harris", "074"),
+      ],
+    });
+    expect(u.providerName).toBe("City of Pasadena");
+    expect(item(u, "water-sewer")!.monthly).toBeCloseTo(49.61, 2);
+    // The dearest refuse charge in the district.
+    expect(item(u, "refuse")!.monthly).toBeCloseTo(33.95, 2);
+  });
+
+  /**
+   * Every city in the district is now sourced or part-sourced, so the fallback
+   * is exercised with a stand-in rather than with a real city that will keep
+   * getting sourced out from under the test.
+   */
+  it("falls back to a labelled estimate for a city with no entry", () => {
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "city",
+      taxingUnits: [
+        requireUnit("harris", "027"),
+        {
+          id: "harris-zzz",
+          name: "City of Nowhere",
+          kind: "city",
+          ratePer100: 0.4,
+          taxYear: 2025,
+          code: "ZZZ",
+          county: "harris",
+        },
+      ],
+    });
+    expect(u.providerName).toBe("City of Nowhere");
     expect(item(u, "water-sewer")!.confidence).toBe("estimated");
     expect(item(u, "water-sewer")!.basis).toMatch(/has not been read/i);
   });
@@ -228,6 +270,96 @@ describe("water, sewer and refuse follow the supplier", () => {
     });
     expect(u.providerName).toBeNull();
     expect(item(u, "water-sewer")!.confidence).toBe("ask");
+  });
+});
+
+describe("the Clear Lake City Water Authority", () => {
+  const CLCWA = requireUnit("harris", "142");
+
+  /**
+   * The district that serves the most parcels here is also the cheapest, which
+   * is the opposite of what a buyer expects from a utility district. It funds
+   * debt service through its $0.25 per $100 property tax instead of through
+   * usage rates, so the cost sits in the tax line of the payment rather than in
+   * the water bill.
+   */
+  it("is sourced, and cheaper than every city water bill in the district", () => {
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "district",
+      taxingUnits: [requireUnit("harris", "027"), CLCWA],
+      districts: [CLCWA],
+      districtWaterAlreadyInPayment: 0,
+    });
+    expect(u.providerName).toBe("Clear Lake City Water Authority");
+    const water = item(u, "water-sewer")!;
+    expect(water.confidence).toBe("sourced");
+    // 10,000 gallons bimonthly = $55.10 a bill = $27.55 a month.
+    expect(water.monthly).toBeCloseTo(27.55, 2);
+    expect(water.basis).toMatch(/every two months/i);
+    expect(water.sourceUrl).toContain("clcwa.org");
+
+    for (const [county, code] of [
+      ["galveston", "C40"],
+      ["harris", "061"],
+      ["harris", "084"],
+      ["harris", "073"],
+    ] as const) {
+      const city = estimateHouseholdUtilities({
+        ...BASE,
+        service: "city",
+        taxingUnits: [requireUnit(county, code)],
+      });
+      expect(water.monthly).toBeLessThan(item(city, "water-sewer")!.monthly);
+    }
+  });
+
+  /**
+   * Refuse is a city service. A district supplies water and sewer only, so
+   * charging the generic district refuse estimate on a Clear Lake City parcel
+   * would invent a bin fee that Houston funds from general revenue.
+   */
+  it("adds no refuse line inside Houston, because the city collects it", () => {
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "district",
+      taxingUnits: [
+        requireUnit("harris", "027"),
+        requireUnit("harris", "061"),
+        CLCWA,
+      ],
+      districts: [CLCWA],
+    });
+    expect(item(u, "refuse")).toBeUndefined();
+  });
+
+  it("falls back to a private hauler where the city publishes no rate", () => {
+    // Taylor Lake Village: CLCWA water, no published city refuse rate.
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "district",
+      taxingUnits: [
+        requireUnit("harris", "027"),
+        requireUnit("harris", "082"),
+        CLCWA,
+      ],
+      districts: [CLCWA],
+    });
+    const refuse = item(u, "refuse")!;
+    expect(refuse.confidence).toBe("estimated");
+    expect(refuse.basis).toMatch(/private-hauler/i);
+  });
+
+  it("still does not double-charge water the payment already carries", () => {
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "district",
+      taxingUnits: [requireUnit("harris", "027"), CLCWA],
+      districts: [CLCWA],
+      // The payment's district water default is well above CLCWA's real bill.
+      districtWaterAlreadyInPayment: 95,
+    });
+    expect(item(u, "water-sewer")).toBeUndefined();
   });
 });
 
@@ -354,5 +486,39 @@ describe("utilities never touch the mortgage payment", () => {
       monthlyInternet: heavy.monthlyInternet,
     });
     expect(utilB.monthlyTotal).toBeGreaterThan(utilA.monthlyTotal * 3);
+  });
+});
+
+/**
+ * This feeds the mortgage payment, not just the estimate, so it gets its own
+ * coverage. Using the generic $95 placeholder on a Clear Lake parcel
+ * overstated the payment by roughly $67 a month.
+ */
+describe("districtWaterBillFor", () => {
+  it("returns the sourced bill for a district that publishes one", () => {
+    const bill = districtWaterBillFor([requireUnit("harris", "142")])!;
+    expect(bill.sourced).toBe(true);
+    expect(bill.monthly).toBeCloseTo(27.55, 2);
+    expect(bill.providerName).toBe("Clear Lake City Water Authority");
+  });
+
+  it("falls back to the placeholder for a district that does not", () => {
+    const bill = districtWaterBillFor([requireUnit("galveston", "M36")])!;
+    expect(bill.sourced).toBe(false);
+    expect(bill.monthly).toBeGreaterThan(50);
+    expect(bill.providerName).toMatch(/MUD No. 36/);
+  });
+
+  it("prefers a sourced district when a parcel carries more than one", () => {
+    const bill = districtWaterBillFor([
+      requireUnit("galveston", "M36"),
+      requireUnit("harris", "142"),
+    ])!;
+    expect(bill.sourced).toBe(true);
+    expect(bill.monthly).toBeCloseTo(27.55, 2);
+  });
+
+  it("returns null when there is no district at all", () => {
+    expect(districtWaterBillFor([])).toBeNull();
   });
 });

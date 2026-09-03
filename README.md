@@ -176,6 +176,9 @@ confirmed from a primary source. Beyond those:
 | Webster water, sewer, drainage | Ordinance 24-12 | $10.71 + $4.82/1,000 water, $16.13 + $7.17 sewer, $1.24 drainage fee. Refuse not in the ordinance. |
 | Seabrook water, sewer, refuse | Refuse Oct 2025 | $21.60 + $7.56/1,000 water, $25.00 + $6.53 sewer, refuse $32.06. The dearest city bill in the district. |
 | Friendswood sewer | Published | $32.00 + $4.90/1,000. Water and refuse not read, so the city stays marked as an estimate. |
+| Clear Lake City Water Authority | Policy R&S-90, Aug 2024 | Single-family billing is **bimonthly**: 10,000 gallons a bill, the equivalent of 5,000 a month, is $55.10 — about $27.55 monthly. The cheapest water in the district, because the authority funds debt service through its $0.25 per $100 tax instead. |
+| Pasadena water, sewer, garbage | FY 2026, Oct 2025 | $14.04 + $3.92/1,000 water, $14.03 + $3.91 sewer billed on 90% of water, garbage $33.95. |
+| Nassau Bay water and sewer | Approved Nov 2025 | $15.00 base + $3.99/1,000 water, $16.98 + $2.95 sewer. Neither base includes any gallons. |
 | Houston-area electricity | 2026 | About 14.35¢/kWh average, plans 12–19¢; ~1,150 kWh a month for an average residence. Deregulated, so the rate is a shopping decision. |
 | Conforming loan limit | 2026: $832,750 | FHFA, announced November 2025. |
 | FHA loan limit | 2026: $541,287 | HUD Mortgagee Letter 2025-23. One figure for the whole district: Harris and Galveston are both in the Houston-Pasadena-The Woodlands MSA. |
@@ -304,10 +307,11 @@ security; the ingest script needs a service key, which is never used by the app.
   rate under 7%, but a miss still reports the zone as unknown rather than
   showing no premium.
 - **Utility estimates are estimates.** Household usage moves them more than any
-  address does. League City, Houston, Webster and Seabrook are from those
-  cities' own published schedules; Friendswood is half-sourced (sewer only) and
-  Nassau Bay and Pasadena carry a regional placeholder, all of which the UI
-  labels. Natural gas is not from CenterPoint's tariff.
+  address does. Every city in the district now uses its own published schedule
+  except Friendswood, which is half-sourced — its sewer is published, its water
+  and refuse are not — and the UI labels it accordingly. Refuse is a regional
+  estimate for Webster and Nassau Bay, which do not publish one alongside water.
+  Natural gas is not from CenterPoint's tariff.
 - **Four of the cities here do not supply water at all**, which is why their
   schedules were never needed: Kemah has no city water (Galveston County WCID
   12 serves most of it), Clear Lake Shores is entirely inside WCID 12, El Lago

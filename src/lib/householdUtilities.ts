@@ -171,6 +171,27 @@ const CITY_WATER_RATES: Record<string, WaterProviderRate> = {
     note: "Friendswood's sewer schedule is published and works out to about $46.70 at 5,000 gallons — a high minimum at $32.00. The water and refuse halves have not been read, so the total here is part sourced and part placeholder. Check the city's utility billing page before relying on it.",
     sourceUrl: "https://www.ci.friendswood.tx.us/246/Utility-Billing",
   },
+  "074": {
+    name: "City of Pasadena",
+    // FY 2026: water $14.04 to 2,000 gallons then $3.92 per thousand; sewer
+    // $14.03 then $3.91, billed on 90% of metered water. Garbage $33.95, the
+    // dearest refuse charge in the district.
+    waterAndSewer: 49.61,
+    refuse: 33.95,
+    confidence: "sourced",
+    note: "The city's FY 2026 schedule, effective October 2025 after a 1.2% CPI adjustment. Water and sewer come to about $49.61 at 5,000 gallons, the cheapest city water in the district, but garbage at $33.95 is the dearest, so the total lands mid-range. Sewer is billed on 90% of metered water rather than the full amount.",
+    sourceUrl: "https://www.pasadenatx.gov/687/Current-Water-Wastewater-Sewer-Garbage-R",
+  },
+  "073": {
+    name: "City of Nassau Bay",
+    // Water $15.00 base plus $3.99 per thousand from the first gallon; sewer
+    // $16.98 base plus $2.95. Neither base includes any usage.
+    waterAndSewer: 66.68,
+    refuse: 22,
+    confidence: "sourced",
+    note: "The rates council re-approved on 12 November 2025. Unusually, neither the water nor the sewer base fee includes any gallons: volumetric charging starts at the first thousand, which makes low-usage households pay relatively more here than elsewhere. The residential refuse rate is not published alongside them and is a regional estimate.",
+    sourceUrl: "https://www.nassaubay.com/93/Taxes-Fees",
+  },
   C37: {
     name: "City of Friendswood",
     waterAndSewer: 82,
@@ -202,6 +223,33 @@ export const CITIES_WITHOUT_CITY_WATER = [
 ] as const;
 
 /**
+ * Utility districts whose own rate schedule has been read.
+ *
+ * Worth having because the biggest one is also the cheapest, which is not what
+ * a buyer expects. The Clear Lake City Water Authority bills single-family
+ * customers *bimonthly*, and its usage rates are low precisely because it
+ * funds debt service through a $0.25 per $100 property tax instead. A CLCWA
+ * household pays through the tax line in the payment above rather than through
+ * the water bill here, so comparing water bills alone across a district
+ * boundary misleads in both directions.
+ */
+const DISTRICT_WATER_RATES: Record<string, WaterProviderRate> = {
+  "142": {
+    name: "Clear Lake City Water Authority",
+    // Policy R&S-90 rev. 19, effective 8 August 2024. Single-family billing is
+    // BIMONTHLY: 10,000 gallons over two months, the equivalent of 5,000 a
+    // month, is $55.10 a bill, so $27.55 a month.
+    waterAndSewer: 27.55,
+    // CLCWA does not collect refuse. It follows the city, which the caller
+    // resolves, so this is only the fallback for an address in no city.
+    refuse: 28,
+    confidence: "sourced",
+    note: "Policy R&S-90, effective August 2024. Single-family customers are billed every two months: 10,000 gallons a bill, the equivalent of 5,000 a month, is $55.10 or about $27.55 monthly. That is the cheapest water in the district by a wide margin, because the authority raises its debt service through the $0.25 per $100 property tax already counted in the payment above rather than through usage rates. It does not collect refuse.",
+    sourceUrl: "https://www.clcwa.org/rate-breakdown",
+  },
+};
+
+/**
  * Used for the cities whose own rate schedule has not been read. It is the
  * middle of the range the sourced providers above actually charge, which makes
  * it a reasonable placeholder and a poor substitute for the real schedule —
@@ -227,6 +275,41 @@ const DISTRICT_ESTIMATE = {
 
 function cityUnitOf(units: TaxingUnit[]): TaxingUnit | undefined {
   return units.find((unit) => unit.kind === "city");
+}
+
+/**
+ * The monthly water and sewer bill to escrow for a parcel in a utility
+ * district, using the district's own published schedule where it has been read.
+ *
+ * This feeds the payment, not just this estimate, which is why it lives here
+ * next to the rates rather than being a constant in defaults.ts. It matters:
+ * the generic district placeholder is $95 a month, and the Clear Lake City
+ * Water Authority — the district serving more parcels here than any other —
+ * actually bills about $27.55. Using the placeholder on those parcels
+ * overstated the payment by roughly $67 a month.
+ *
+ * Returns null when no district applies, so the caller can zero the line
+ * rather than being handed a number to ignore.
+ */
+export function districtWaterBillFor(
+  districts: TaxingUnit[],
+): { monthly: number; sourced: boolean; providerName: string } | null {
+  if (districts.length === 0) return null;
+  for (const unit of districts) {
+    const rate = unit.code ? DISTRICT_WATER_RATES[unit.code] : undefined;
+    if (rate) {
+      return {
+        monthly: rate.waterAndSewer,
+        sourced: true,
+        providerName: rate.name,
+      };
+    }
+  }
+  return {
+    monthly: DISTRICT_ESTIMATE.waterAndSewer,
+    sourced: false,
+    providerName: districts[0].name,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -301,29 +384,71 @@ export function estimateHouseholdUtilities(args: {
   let providerName: string | null = null;
 
   if (service === "district") {
-    providerName = districts[0]?.name ?? "Utility district";
-    // The district's water bill is already a line in the mortgage payment, so
-    // only the shortfall (if any) and the refuse charge are added here.
-    const extra = Math.max(
-      0,
-      DISTRICT_ESTIMATE.waterAndSewer - districtWaterAlreadyInPayment,
-    );
+    const districtRate = districts
+      .map((unit) => (unit.code ? DISTRICT_WATER_RATES[unit.code] : undefined))
+      .find(Boolean);
+    providerName =
+      districtRate?.name ?? districts[0]?.name ?? "Utility district";
+
+    const typical =
+      districtRate?.waterAndSewer ?? DISTRICT_ESTIMATE.waterAndSewer;
+    const basisNote = districtRate?.note ?? DISTRICT_ESTIMATE.note;
+
+    /*
+     * The district's water bill is already a line in the mortgage payment, so
+     * only the shortfall is added here. With CLCWA that shortfall is normally
+     * nothing, because its real bill is well under the generic district figure
+     * the payment carries, which is itself worth knowing.
+     */
+    const extra = Math.max(0, typical - districtWaterAlreadyInPayment);
     if (extra > 0) {
       items.push({
         id: "water-sewer",
-        label: "Water and sewer, beyond what the payment already counts",
+        label:
+          districtWaterAlreadyInPayment > 0
+            ? "Water and sewer, beyond what the payment already counts"
+            : "Water and sewer",
         monthly: roundCents(extra),
-        basis: `The payment above already carries ${formatMoneyish(districtWaterAlreadyInPayment)} of district water. A typical district bill runs about ${formatMoneyish(DISTRICT_ESTIMATE.waterAndSewer)}. ${DISTRICT_ESTIMATE.note}`,
+        basis:
+          districtWaterAlreadyInPayment > 0
+            ? `The payment above already carries ${formatMoneyish(districtWaterAlreadyInPayment)} of district water, against about ${formatMoneyish(typical)} for this district. ${basisNote}`
+            : basisNote,
+        confidence: districtRate?.confidence ?? "estimated",
+        sourceUrl: districtRate?.sourceUrl,
+      });
+    }
+
+    /*
+     * Refuse follows the city, not the district. A utility district supplies
+     * water and sewer; rubbish is collected by whichever city the parcel sits
+     * in, or by a private hauler where there is none. Charging the district
+     * estimate inside Houston would invent a bin fee the city funds from
+     * general revenue.
+     */
+    const city = cityUnitOf(taxingUnits);
+    const cityRate = city?.code ? CITY_WATER_RATES[city.code] : undefined;
+    if (cityRate) {
+      if (cityRate.refuse > 0) {
+        items.push({
+          id: "refuse",
+          label: "Refuse collection",
+          monthly: cityRate.refuse,
+          basis: `Collected by ${cityRate.name}, not by the utility district: a district supplies water and sewer only.`,
+          confidence: cityRate.confidence,
+          sourceUrl: cityRate.sourceUrl,
+        });
+      }
+    } else {
+      items.push({
+        id: "refuse",
+        label: "Refuse collection",
+        monthly: DISTRICT_ESTIMATE.refuse,
+        basis: city
+          ? `${city.name} does not publish a refuse rate here, so this is a private-hauler estimate. A utility district supplies water and sewer only.`
+          : DISTRICT_ESTIMATE.note,
         confidence: "estimated",
       });
     }
-    items.push({
-      id: "refuse",
-      label: "Refuse collection",
-      monthly: DISTRICT_ESTIMATE.refuse,
-      basis: DISTRICT_ESTIMATE.note,
-      confidence: "estimated",
-    });
   } else {
     const city = cityUnitOf(taxingUnits);
     const rate = city?.code ? CITY_WATER_RATES[city.code] : undefined;

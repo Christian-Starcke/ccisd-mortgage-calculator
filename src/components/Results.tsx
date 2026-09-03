@@ -5,7 +5,10 @@ import type { ScenarioResult } from "@/lib/scenario";
 import type { AffordabilityResult } from "@/lib/affordability";
 import type { CalculatorState } from "@/lib/defaults";
 import type { WaterServiceAssessment } from "@/lib/waterService";
-import type { HouseholdUtilities } from "@/lib/householdUtilities";
+import {
+  districtWaterBillFor,
+  type HouseholdUtilities,
+} from "@/lib/householdUtilities";
 import { Badge, Callout, Card, Disclosure, LineItem, Stat } from "./ui";
 
 const PAYMENT_COLORS = {
@@ -657,6 +660,10 @@ export function WaterServiceCard({
   hasParcel: boolean;
 }) {
   const { service } = water;
+  // Says whether the water bill above is this district's own published figure
+  // or the generic placeholder, which is a meaningful difference: CLCWA's real
+  // bill is a third of the placeholder.
+  const districtBill = districtWaterBillFor(water.districts);
 
   const heading =
     service === "district"
@@ -707,7 +714,11 @@ export function WaterServiceCard({
             <LineItem
               label="District water and sewer bill, monthly"
               amount={formatUSD(water.monthlyWaterBill)}
-              note="Billed by the district, not the city. Estimated — the district publishes its own rate schedule."
+              note={
+                districtBill?.sourced
+                  ? `Billed by ${districtBill.providerName} on its own published schedule, not by the city.`
+                  : "Billed by the district, not the city. Estimated — each district publishes its own schedule, and the spread between them is wide."
+              }
             />
             <LineItem
               label="What the district costs you every month"

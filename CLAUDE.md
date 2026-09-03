@@ -169,11 +169,20 @@ identical across wildly different utility inputs — do not delete it.
   vary by address; do not make it.
 - Gas defaults off — much of this district is all-electric, and that is a
   property attribute, not something the address settles.
-- Confidence markers are load-bearing. League City, Houston, Webster and
-  Seabrook are `sourced` from their own schedules. Friendswood is `estimated`
-  because only its sewer was read — do not promote a half-read city. Nassau Bay
-  and Pasadena are the remaining placeholders. Never mark something `sourced`
-  without having read the provider's own schedule.
+- Confidence markers are load-bearing. Every city is now `sourced` from its own
+  schedule except Friendswood, which stays `estimated` because only its sewer
+  was read — do not promote a half-read provider. Never mark something
+  `sourced` without having read the provider's own schedule.
+- **CLCWA bills single-family customers bimonthly**, not monthly. Its schedule
+  is per two-month bill; the stored figure is already halved. Getting this wrong
+  doubles the water bill on more parcels than any other district here.
+- `districtWaterBillFor` feeds the **payment**, not just this estimate, which is
+  why it lives beside the rates. The generic district placeholder is $95 and
+  CLCWA actually bills ~$27.55; using the placeholder overstated the payment by
+  roughly $67 a month on 15,394 parcels.
+- **Refuse follows the city, not the district.** A district supplies water and
+  sewer only. Charging the district refuse estimate inside Houston invents a bin
+  fee the city funds from general revenue.
 - **Four cities in this district supply no water**, so they never reach the city
   rate table: Kemah (no city water at all), Clear Lake Shores (100% in WCID 12),
   El Lago (96% in HC WCID 50) and Taylor Lake Village (90% in CLCWA). Their

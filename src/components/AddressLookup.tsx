@@ -18,6 +18,7 @@ import {
   HOMEOWNERS_RATE_PER_THOUSAND,
 } from "@/lib/windstorm";
 import { assessAppraisalGap } from "@/lib/appraisalGap";
+import { districtWaterBillFor } from "@/lib/householdUtilities";
 import { Badge, Callout, Field, TextInput } from "./ui";
 
 const CCISD_MAP_URL = "https://www.ccisd.net/district-map";
@@ -82,9 +83,17 @@ function applyParcel(
   }
 
   if (parcel.hasUtilityDistrict) {
-    if (state.monthlyMudUtility === 0) {
-      update("monthlyMudUtility", DEFAULT_MUD_UTILITY_MONTHLY);
-    }
+    /*
+     * Use the district's own published bill where it is known. The generic
+     * placeholder is $95 and the Clear Lake City Water Authority, which serves
+     * more parcels here than any other district, bills about $27.55 — so the
+     * placeholder overstated the payment by two thirds on those addresses.
+     */
+    const districts = parcel.taxingUnits.filter(
+      (unit) => unit.kind === "mud" || unit.kind === "lid",
+    );
+    const bill = districtWaterBillFor(districts);
+    update("monthlyMudUtility", bill?.monthly ?? DEFAULT_MUD_UTILITY_MONTHLY);
   } else {
     update("monthlyMudUtility", 0);
   }
