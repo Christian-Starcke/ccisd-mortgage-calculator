@@ -136,7 +136,70 @@ const CITY_WATER_RATES: Record<string, WaterProviderRate> = {
     note: "Water and wastewater at about 5,000 gallons on a 5/8 or 3/4 inch meter, on the rates effective April 2026. Houston funds single-family refuse collection out of general revenue rather than a separate line, so there is no bin charge. Rates have risen every April under a five-year plan.",
     sourceUrl: "https://www.houstonwaterbills.houstontx.gov/ProdDP/CalculateConsumptionrate/CalculateConsumptionrate",
   },
+  "084": {
+    name: "City of Webster",
+    // Water $10.71 minimum covering the first 2,000 gallons plus $4.82 per
+    // thousand after, wastewater $16.13 plus $7.17, and the $1.24 drainage
+    // utility fee that applies to every house in the city.
+    waterAndSewer: 64.05,
+    refuse: 22,
+    confidence: "sourced",
+    note: "Water and wastewater at 5,000 gallons on the city's rate ordinance, plus the $1.24 monthly drainage utility fee every house in the city pays. The wastewater volumetric charge is capped at your winter average, so a household that irrigates heavily in summer pays less sewer than this suggests. Refuse is not in the rate ordinance and is a regional estimate.",
+    sourceUrl: "https://www.webstertx.gov/484/Utilities",
+  },
+  "076": {
+    name: "City of Seabrook",
+    // Water $21.60 minimum to 2,000 gallons plus $7.56 per thousand; sewer
+    // $25.00 plus $6.53. Houston's water and sewer is dearer on its own, but
+    // Seabrook adds $32 of refuse where Houston charges none, so this is the
+    // most expensive city utility bill in the district overall.
+    waterAndSewer: 88.87,
+    refuse: 32.06,
+    confidence: "sourced",
+    note: "Water and wastewater at 5,000 gallons on the city's published schedule, plus refuse at $32.06, the Waste Management rate effective October 2025. Adding up to the dearest city utility bill in the district — Houston's water is dearer on its own, but Houston charges no refuse.",
+    sourceUrl: "http://www.seabrooktx.gov/441/Water-Sewer-and-Garbage-Rates",
+  },
+  "058": {
+    name: "City of Friendswood",
+    // Only the sewer schedule was read: $32.00 minimum covering the first
+    // 2,000 gallons plus $4.90 per thousand, so $46.70 at 5,000. The water and
+    // refuse halves are the regional placeholder, which is why this stays
+    // marked as an estimate rather than sourced.
+    waterAndSewer: 82,
+    refuse: 22,
+    confidence: "estimated",
+    note: "Friendswood's sewer schedule is published and works out to about $46.70 at 5,000 gallons — a high minimum at $32.00. The water and refuse halves have not been read, so the total here is part sourced and part placeholder. Check the city's utility billing page before relying on it.",
+    sourceUrl: "https://www.ci.friendswood.tx.us/246/Utility-Billing",
+  },
+  C37: {
+    name: "City of Friendswood",
+    waterAndSewer: 82,
+    refuse: 22,
+    confidence: "estimated",
+    note: "The Galveston County part of Friendswood is billed by the same city utility as the Harris County part.",
+    sourceUrl: "https://www.ci.friendswood.tx.us/246/Utility-Billing",
+  },
 };
+
+/**
+ * Cities in this district whose own utility supplies no water.
+ *
+ * Worth stating because it is counter-intuitive and it is most of them. Kemah
+ * has no city water at all — Galveston County WCID 12 serves most of it and
+ * Bayview MUD the rest. Clear Lake Shores is entirely inside WCID 12. El Lago
+ * is 96% inside Harris County WCID 50, and Taylor Lake Village 90% inside the
+ * Clear Lake City Water Authority.
+ *
+ * They never reach the city rate table above, because a parcel carrying any of
+ * those districts resolves as district-served — which is the correct answer and
+ * also why their city schedules were never worth chasing.
+ */
+export const CITIES_WITHOUT_CITY_WATER = [
+  "C38", // Kemah
+  "C46", // Clear Lake Shores
+  "056", // El Lago
+  "082", // Taylor Lake Village
+] as const;
 
 /**
  * Used for the cities whose own rate schedule has not been read. It is the

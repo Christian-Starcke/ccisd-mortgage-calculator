@@ -188,7 +188,7 @@ export const LOCATION_PRESETS: LocationPreset[] = [
       "Clear Lake City, Bay Oaks, Pine Brook and the other Houston-annexed neighbourhoods inside the district.",
     county: "harris",
     baseUnits: [...HARRIS_BASE, h("061")],
-    defaultUtilityDistrictId: "142",
+    defaultUtilityDistrictId: "harris-142",
     windExposure: "inland",
     usdaPlausible: false,
     typicalHoaAnnual: [300, 1_100],
@@ -227,7 +227,8 @@ export const LOCATION_PRESETS: LocationPreset[] = [
     description: "The city of El Lago, between Taylor Lake and Clear Lake.",
     county: "harris",
     baseUnits: [...HARRIS_BASE, h("056")],
-    defaultUtilityDistrictId: "none",
+    // 96% of parcels here are in Harris County WCID 50.
+    defaultUtilityDistrictId: "harris-604",
     windExposure: "inland",
     usdaPlausible: false,
     typicalHoaAnnual: [0, 600],
@@ -239,7 +240,9 @@ export const LOCATION_PRESETS: LocationPreset[] = [
     description: "The city of Taylor Lake Village, on the west shore of Taylor Lake.",
     county: "harris",
     baseUnits: [...HARRIS_BASE, h("082")],
-    defaultUtilityDistrictId: "none",
+    // 90% of parcels here are in the Clear Lake City Water Authority, which
+    // supplies the water; the city does not.
+    defaultUtilityDistrictId: "harris-142",
     windExposure: "inland",
     usdaPlausible: false,
     typicalHoaAnnual: [0, 600],
@@ -265,7 +268,9 @@ export const LOCATION_PRESETS: LocationPreset[] = [
     description: "The city of Kemah, at the mouth of Clear Creek.",
     county: "galveston",
     baseUnits: [...GALVESTON_BASE, g("C38")],
-    defaultUtilityDistrictId: "none",
+    // The city of Kemah supplies no water. Galveston County WCID 12 serves
+    // most of it and Bayview MUD the rest, on 91% of parcels between them.
+    defaultUtilityDistrictId: "galveston-w03",
     windExposure: "designated",
     usdaPlausible: false,
     typicalHoaAnnual: [0, 1_000],
@@ -278,7 +283,9 @@ export const LOCATION_PRESETS: LocationPreset[] = [
     description: "The island city of Clear Lake Shores, between Clear Lake and Galveston Bay.",
     county: "galveston",
     baseUnits: [...GALVESTON_BASE, g("C46")],
-    defaultUtilityDistrictId: "none",
+    // Every parcel in the city is in Galveston County WCID 12 — which, with a
+    // zero city rate, is the entire non-school half of the bill here.
+    defaultUtilityDistrictId: "galveston-w03",
     windExposure: "designated",
     usdaPlausible: false,
     typicalHoaAnnual: [0, 600],
@@ -330,7 +337,7 @@ export const LOCATION_PRESETS: LocationPreset[] = [
       "Newer Harris County subdivisions inside the district that are not in any city.",
     county: "harris",
     baseUnits: HARRIS_BASE,
-    defaultUtilityDistrictId: "355",
+    defaultUtilityDistrictId: "harris-355",
     windExposure: "inland",
     usdaPlausible: false,
     typicalHoaAnnual: [500, 1_400],
@@ -393,6 +400,23 @@ export function findUtilityDistrict(id: string): TaxingUnit {
   return (
     UTILITY_DISTRICTS.find((unit) => unit.id === id) ?? UTILITY_DISTRICTS[0]
   );
+}
+
+/**
+ * Every preset's default district must actually exist.
+ *
+ * Ids are `<county>-<code>`, and a preset that names a bare code instead
+ * silently falls through to "no utility district" — understating the payment
+ * on exactly the presets that exist to model one. That shipped once. Checking
+ * at module load turns it into an immediate, loud failure instead.
+ */
+for (const preset of LOCATION_PRESETS) {
+  const id = preset.defaultUtilityDistrictId;
+  if (id !== "none" && !UTILITY_DISTRICTS.some((unit) => unit.id === id)) {
+    throw new Error(
+      `Location preset "${preset.id}" defaults to utility district "${id}", which does not exist. Ids are \`<county>-<code>\`, e.g. "harris-142".`,
+    );
+  }
 }
 
 /**

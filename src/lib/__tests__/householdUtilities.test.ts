@@ -124,13 +124,98 @@ describe("water, sewer and refuse follow the supplier", () => {
     expect(item(u, "refuse")).toBeUndefined();
   });
 
-  it("marks a city whose schedule was not read as an estimate", () => {
+  it("uses Webster's own rate ordinance, drainage fee included", () => {
     const u = estimateHouseholdUtilities({
       ...BASE,
       service: "city",
       taxingUnits: WEBSTER,
     });
     expect(u.providerName).toBe("City of Webster");
+    expect(item(u, "water-sewer")!.confidence).toBe("sourced");
+    // $10.71 + 3x$4.82 water, $16.13 + 3x$7.17 sewer, $1.24 drainage.
+    expect(item(u, "water-sewer")!.monthly).toBeCloseTo(64.05, 2);
+  });
+
+  it("uses Seabrook's own schedule, the dearest city bill here", () => {
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "city",
+      taxingUnits: [
+        requireUnit("harris", "027"),
+        requireUnit("harris", "040"),
+        requireUnit("harris", "076"),
+      ],
+    });
+    expect(u.providerName).toBe("City of Seabrook");
+    expect(item(u, "water-sewer")!.monthly).toBeCloseTo(88.87, 2);
+    expect(item(u, "refuse")!.monthly).toBeCloseTo(32.06, 2);
+    /*
+     * Dearest on the total, not on water alone: Houston's water and sewer is
+     * $95 against Seabrook's $88.87, but Houston bills no refuse and Seabrook
+     * bills $32. Comparing the water line alone would rank them backwards.
+     */
+    const seabrookTotal =
+      item(u, "water-sewer")!.monthly + item(u, "refuse")!.monthly;
+    for (const [county, code] of [
+      ["galveston", "C40"],
+      ["harris", "061"],
+      ["harris", "084"],
+    ] as const) {
+      const other = estimateHouseholdUtilities({
+        ...BASE,
+        service: "city",
+        taxingUnits: [requireUnit(county, code)],
+      });
+      const otherTotal =
+        item(other, "water-sewer")!.monthly +
+        (item(other, "refuse")?.monthly ?? 0);
+      expect(seabrookTotal).toBeGreaterThan(otherTotal);
+    }
+  });
+
+  it("keeps Friendswood an estimate, because only its sewer was read", () => {
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "city",
+      taxingUnits: [
+        requireUnit("harris", "027"),
+        requireUnit("harris", "058"),
+      ],
+    });
+    expect(u.providerName).toBe("City of Friendswood");
+    // Part sourced, part placeholder, so it must not claim to be sourced.
+    expect(item(u, "water-sewer")!.confidence).toBe("estimated");
+    expect(item(u, "water-sewer")!.basis).toMatch(/part placeholder/i);
+  });
+
+  it("bills Friendswood the same either side of the county line", () => {
+    const harris = estimateHouseholdUtilities({
+      ...BASE,
+      service: "city",
+      taxingUnits: [requireUnit("harris", "058")],
+    });
+    const galveston = estimateHouseholdUtilities({
+      ...BASE,
+      service: "city",
+      taxingUnits: [requireUnit("galveston", "C37")],
+    });
+    expect(item(harris, "water-sewer")!.monthly).toBe(
+      item(galveston, "water-sewer")!.monthly,
+    );
+  });
+
+  it("marks a city whose schedule was not read at all as an estimate", () => {
+    // Nassau Bay is genuinely city-served — no parcel in it is in a district —
+    // but its schedule has not been read.
+    const u = estimateHouseholdUtilities({
+      ...BASE,
+      service: "city",
+      taxingUnits: [
+        requireUnit("harris", "027"),
+        requireUnit("harris", "073"),
+      ],
+    });
+    expect(u.providerName).toBe("City of Nassau Bay");
     expect(item(u, "water-sewer")!.confidence).toBe("estimated");
     expect(item(u, "water-sewer")!.basis).toMatch(/has not been read/i);
   });

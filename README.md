@@ -173,6 +173,9 @@ confirmed from a primary source. Beyond those:
 | Galveston parcel footprint | GCAD drop, April 2026 | 39,156 parcels, each with a centroid reprojected from EPSG:2278 so the FEMA layer can be sampled. |
 | League City water, sewer, refuse | April 2026 | Published residential rates. Staged increases run through 2029. |
 | City of Houston water and sewer | April 2026 | Rates effective April 2026; single-family refuse is funded from general revenue, not a separate charge. |
+| Webster water, sewer, drainage | Ordinance 24-12 | $10.71 + $4.82/1,000 water, $16.13 + $7.17 sewer, $1.24 drainage fee. Refuse not in the ordinance. |
+| Seabrook water, sewer, refuse | Refuse Oct 2025 | $21.60 + $7.56/1,000 water, $25.00 + $6.53 sewer, refuse $32.06. The dearest city bill in the district. |
+| Friendswood sewer | Published | $32.00 + $4.90/1,000. Water and refuse not read, so the city stays marked as an estimate. |
 | Houston-area electricity | 2026 | About 14.35¢/kWh average, plans 12–19¢; ~1,150 kWh a month for an average residence. Deregulated, so the rate is a shopping decision. |
 | Conforming loan limit | 2026: $832,750 | FHFA, announced November 2025. |
 | FHA loan limit | 2026: $541,287 | HUD Mortgagee Letter 2025-23. One figure for the whole district: Harris and Galveston are both in the Houston-Pasadena-The Woodlands MSA. |
@@ -301,9 +304,15 @@ security; the ingest script needs a service key, which is never used by the app.
   rate under 7%, but a miss still reports the zone as unknown rather than
   showing no premium.
 - **Utility estimates are estimates.** Household usage moves them more than any
-  address does, and only League City's and Houston's own rate schedules have
-  been read; the other cities carry a regional placeholder that the UI labels
-  as such. Natural gas is not from CenterPoint's tariff.
+  address does. League City, Houston, Webster and Seabrook are from those
+  cities' own published schedules; Friendswood is half-sourced (sewer only) and
+  Nassau Bay and Pasadena carry a regional placeholder, all of which the UI
+  labels. Natural gas is not from CenterPoint's tariff.
+- **Four of the cities here do not supply water at all**, which is why their
+  schedules were never needed: Kemah has no city water (Galveston County WCID
+  12 serves most of it), Clear Lake Shores is entirely inside WCID 12, El Lago
+  is 96% inside Harris County WCID 50, and Taylor Lake Village 90% inside the
+  Clear Lake City Water Authority. Those resolve as district-served.
 - **HCAD does not publish exemptions on its parcel layer**, so the "the seller's
   homestead does not transfer" warning is driven off the record only on the
   Galveston side. It is stated unconditionally on the Harris side instead.

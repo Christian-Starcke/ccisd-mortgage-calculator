@@ -44,6 +44,13 @@ $100.
 - Seller exemptions do not transfer. Homestead resets on sale.
 - Appraised value and listing price stay separate. Warn when they diverge.
 - Appraisal cap models **purchase year + 2** (`yearsBeforeCapApplies` default 2).
+- A preset's `defaultUtilityDistrictId` must be a real unit id, which is
+  `<county>-<code>` — `"harris-142"`, not `"142"`. A bare code silently falls
+  through to "no utility district" and understates the payment on exactly the
+  presets that exist to model one. That shipped once; there is now a module-load
+  check in `clearCreekTaxRates.ts` that throws instead.
+- Preset district defaults come from the parcel data, not from intuition. Query
+  which district actually co-occurs with each city before changing one.
 
 ## Windstorm is a first-class payment line
 
@@ -129,6 +136,23 @@ and coastal Houston. The program stays in the catalog so the comparison can say
 what is unavailable instead of going quiet, and the lookup stays because it is
 cheap and honest. Do not delete either; do not pretend it might apply.
 
+## Appraisal gap: two directions, opposite meanings
+
+`src/lib/appraisalGap.ts`, one model for both so the UI cannot warn about a gap
+one way and stay silent about an equally large one the other.
+
+- **Roll above price** is upside: a protest citing the closing statement. Ranked
+  as an action.
+- **Roll below price** is risk: the district reassesses toward the sale price and
+  the payment rises. Raised as a scenario warning *and* beside the address, with
+  a one-click switch to bill at the purchase price. This is the more dangerous
+  direction because a low assessment reads as good news.
+- The 10% homestead cap does **not** stop the first post-sale reset — it applies
+  only after a full year of ownership. Do not imply otherwise.
+- Re-bill every unit at the other value; never scale the tax by the ratio of the
+  values. The school exemption is a flat $140,000, so tax is not proportional to
+  value and a ratio understates the increase by ~15% at these prices.
+
 ## Utilities are not the payment
 
 `src/lib/householdUtilities.ts` estimates the cost of *running* the house.
@@ -145,10 +169,16 @@ identical across wildly different utility inputs — do not delete it.
   vary by address; do not make it.
 - Gas defaults off — much of this district is all-electric, and that is a
   property attribute, not something the address settles.
-- Confidence markers are load-bearing. Only League City's and Houston's own
-  schedules have been read (`sourced`); every other city carries a regional
-  placeholder (`estimated`) the UI labels as such. Do not promote a placeholder
-  to `sourced` without reading the provider's schedule.
+- Confidence markers are load-bearing. League City, Houston, Webster and
+  Seabrook are `sourced` from their own schedules. Friendswood is `estimated`
+  because only its sewer was read — do not promote a half-read city. Nassau Bay
+  and Pasadena are the remaining placeholders. Never mark something `sourced`
+  without having read the provider's own schedule.
+- **Four cities in this district supply no water**, so they never reach the city
+  rate table: Kemah (no city water at all), Clear Lake Shores (100% in WCID 12),
+  El Lago (96% in HC WCID 50) and Taylor Lake Village (90% in CLCWA). Their
+  parcels resolve as district-served, which is correct. Their preset defaults
+  name those districts; do not reset them to "none".
 - Report the August peak alongside the annual mean. A Houston electricity bill
   runs about a third above average in the month new owners first meet it.
 - A district's water bill is already a line in the payment, so only the
