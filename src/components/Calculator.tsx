@@ -120,6 +120,7 @@ export function Calculator() {
             scenario={detailScenario}
             ranking={ranking}
             state={state}
+            utilities={utilities}
             onSelectPath={selectPath}
             onAutoPick={() => update("manualOverride", false)}
           />

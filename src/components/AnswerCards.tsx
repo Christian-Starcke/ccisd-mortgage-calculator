@@ -4,6 +4,7 @@ import { ASSISTANCE_PROGRAMS } from "@/data/assistancePrograms";
 import { findLocationPreset } from "@/data/clearCreekTaxRates";
 import { resolveStateTaxUnits } from "@/lib/buildFromState";
 import type { CalculatorState } from "@/lib/defaults";
+import type { HouseholdUtilities } from "@/lib/householdUtilities";
 import { formatUSD } from "@/lib/money";
 import type { PathRanking, RankedPath } from "@/lib/pathRank";
 import type { ScenarioResult } from "@/lib/scenario";
@@ -53,12 +54,14 @@ export function AnswerCards({
   scenario,
   ranking,
   state,
+  utilities,
   onSelectPath,
   onAutoPick,
 }: {
   scenario: ScenarioResult;
   ranking: PathRanking;
   state: CalculatorState;
+  utilities: HouseholdUtilities;
   onSelectPath: (path: RankedPath) => void;
   onAutoPick: () => void;
 }) {
@@ -113,7 +116,15 @@ export function AnswerCards({
           </p>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5 sm:gap-x-8">
+        {/*
+          * Same definition as "All in, monthly" in the TrueMonthlyCostCard:
+          * the mortgage payment plus the household utilities. The utilities
+          * are not part of the payment and no lender counts them, but they
+          * come out of the same paycheque, so the headline pair above is not
+          * the whole cost of the house. Sized one notch below the two heroes
+          * to keep the payment as the headline.
+          */}
+        <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5 sm:gap-x-8 lg:grid-cols-3">
           <div className="min-w-0">
             <div className="hero-label">Monthly payment</div>
             <div className="tnum break-words text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
@@ -125,6 +136,19 @@ export function AnswerCards({
             <div className="tnum break-words text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
               {formatUSD(scenario.cashToClose.netCashDue)}
             </div>
+          </div>
+          <div className="col-span-2 min-w-0 lg:col-span-1">
+            <div className="hero-label">All in, monthly</div>
+            <div className="tnum break-words text-2xl font-semibold tracking-tight sm:text-3xl lg:text-4xl">
+              {formatUSD(scenario.monthly.total + utilities.monthlyTotal)}
+            </div>
+            <p className="mt-1 text-xs text-brand-300">
+              Payment plus utilities — about{" "}
+              {formatUSD(
+                scenario.monthly.total + utilities.peakMonthlyTotal,
+              )}{" "}
+              in August.
+            </p>
           </div>
         </div>
 
