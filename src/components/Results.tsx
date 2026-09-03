@@ -3,7 +3,9 @@
 import { formatPercent, formatUSD } from "@/lib/money";
 import type { ScenarioResult } from "@/lib/scenario";
 import type { AffordabilityResult } from "@/lib/affordability";
-import type { CalculatorState } from "@/lib/defaults";
+import type { ReactNode } from "react";
+import type { CalculatorState, UpdateState } from "@/lib/defaults";
+import type { AppraisalGapAssessment } from "@/lib/appraisalGap";
 import type { WaterServiceAssessment } from "@/lib/waterService";
 import {
   districtWaterBillFor,
@@ -34,9 +36,12 @@ function monthsToYearsMonths(months: number): string {
 
 export function PaymentSummary({
   scenario,
+  water,
   cashAvailable = 0,
 }: {
   scenario: ScenarioResult;
+  /** Folded in below the breakdown: it explains the payment, not adds to it. */
+  water: WaterServiceAssessment;
   cashAvailable?: number;
 }) {
   const { monthly } = scenario;
@@ -157,26 +162,32 @@ export function PaymentSummary({
         </div>
       )}
 
-      {scenario.warnings.length > 0 && (
-        <div className="mt-4">
-          {scenario.warnings.length === 1 ? (
-            <Callout tone="warn">{scenario.warnings[0]}</Callout>
-          ) : (
-            <Callout
-              tone="warn"
-              title={`${scenario.warnings.length} things to check before you trust this number`}
-            >
-              <ul className="list-disc space-y-1.5 pl-4">
-                {scenario.warnings.map((warning) => (
-                  <li key={warning}>{warning}</li>
-                ))}
-              </ul>
-            </Callout>
-          )}
-        </div>
-      )}
+      {/*
+        Water service explains this payment rather than adding to it, so it
+        lives here as a disclosure instead of competing as its own card. It is
+        still the largest driver of monthly cost that a listing never states,
+        which is why the summary line is on the outside of the fold.
+      */}
+      <div className="mt-4">
+        <Disclosure summary={waterSummaryLine(water)}>
+          <div className="pt-2">
+            <WaterServiceDetail water={water} scenario={scenario} />
+          </div>
+        </Disclosure>
+      </div>
     </Card>
   );
+}
+
+/** The one-line version, visible without opening the disclosure. */
+function waterSummaryLine(water: WaterServiceAssessment): string {
+  if (water.service === "district") {
+    return `Water and sewer · in a utility district, ${formatUSD(water.monthlyTotal)}/mo of this payment`;
+  }
+  if (water.service === "city") {
+    return "Water and sewer · city-served, no district tax or district bill";
+  }
+  return "Water and sewer · not yet known for this address";
 }
 
 export function CashToCloseCard({
@@ -650,14 +661,12 @@ export function AffordabilityCard({
  * way to see that one of them carries a utility district and the other does
  * not — and that difference can be over $300 a month.
  */
-export function WaterServiceCard({
+export function WaterServiceDetail({
   water,
   scenario,
-  hasParcel,
 }: {
   water: WaterServiceAssessment;
   scenario: ScenarioResult;
-  hasParcel: boolean;
 }) {
   const { service } = water;
   // Says whether the water bill above is this district's own published figure
@@ -675,11 +684,12 @@ export function WaterServiceCard({
   const tone = service === "district" ? "warn" : service === "city" ? "good" : "bad";
 
   return (
-    <Card
-      title="Water and sewer"
-      subtitle="The largest cost a listing never tells you. A utility district charges its own property tax and bills water separately; a city does neither."
-    >
-      <div className="flex flex-wrap items-center gap-2">
+    <div>
+      <p className="text-sm leading-relaxed text-ink-500">
+        The largest cost a listing never tells you. A utility district charges
+        its own property tax and bills water separately; a city does neither.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Badge tone={tone}>{heading}</Badge>
         {service === "district" && water.combinedRatePer100 > 0 && (
           <Badge tone="neutral">
@@ -776,13 +786,11 @@ export function WaterServiceCard({
               ? `${water.unknownRateDistricts
                   .map((r) => r.name)
                   .join(", ")} bills this parcel, but the county publishes no rate for it — it is collected privately. Enter the rate from the appraisal record under More options, because a district left at zero is the largest possible understatement of this payment.`
-              : hasParcel
-                ? "The parcel record did not resolve a water provider. Check the appraisal record before trusting the payment."
-                : "Pick the parcel above. Until then this uses whatever the location preset assumes, and a district is worth $150 to $350 a month — far too much to guess at."}
+              : "Pick the parcel above. Until then this uses whatever the location preset assumes, and a district is worth $150 to $350 a month — far too much to guess at."}
           </Callout>
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -794,7 +802,7 @@ export function WaterServiceCard({
  * out of the same paycheque, and a buyer who budgets only the mortgage payment
  * is short by the better part of $400 a month.
  */
-export function HouseholdUtilitiesCard({
+export function TrueMonthlyCostCard({
   utilities,
   scenario,
 }: {
@@ -812,12 +820,32 @@ export function HouseholdUtilitiesCard({
 
   return (
     <Card
-      title="What it costs to run the house"
-      subtitle="Utilities are not part of the mortgage payment, are not escrowed, and are not counted in your debt-to-income ratio — but they come out of the same paycheque. Estimated separately so neither number misleads you."
+      title="What living here actually costs"
+      subtitle="The mortgage payment plus the bills. Utilities are not escrowed, are not part of the payment and are not counted in your debt-to-income ratio — but they come out of the same paycheque, so they are estimated separately and added here."
     >
+      <div className="flex flex-col gap-6 sm:flex-row sm:flex-wrap sm:items-end sm:gap-8">
+        <Stat
+          label="All in, monthly"
+          value={formatUSD(grandTotal)}
+          size="lg"
+          tone="neutral"
+        />
+        <Stat
+          label="Mortgage payment"
+          value={formatUSD(scenario.monthly.total)}
+          tone="neutral"
+        />
+        <Stat
+          label="Utilities"
+          value={formatUSD(utilities.monthlyTotal)}
+          sub={`about ${formatUSD(utilities.peakMonthlyTotal)} in August`}
+          tone="neutral"
+        />
+      </div>
+
       {utilities.providerName && (
-        <div className="flex flex-wrap gap-2">
-          <Badge tone="neutral">Supplied by {utilities.providerName}</Badge>
+        <div className="mt-4">
+          <Badge tone="neutral">Water from {utilities.providerName}</Badge>
         </div>
       )}
 
@@ -852,23 +880,6 @@ export function HouseholdUtilitiesCard({
         />
       </div>
 
-      <div className="mt-5 divide-y divide-ink-100 border-t border-ink-200 pt-1">
-        <LineItem
-          label="Mortgage payment"
-          amount={formatUSD(scenario.monthly.total)}
-          note="Principal, interest, taxes, insurance, mortgage insurance and HOA — the number a lender underwrites."
-        />
-        <LineItem
-          label="Utilities"
-          amount={formatUSD(utilities.monthlyTotal)}
-        />
-        <LineItem
-          label="What living here actually costs"
-          amount={formatUSD(grandTotal)}
-          emphasis
-        />
-      </div>
-
       <div className="mt-4 space-y-3">
         <Callout tone="warn" title="August is not the average">
           Air conditioning makes summer the expensive half of the year here. In
@@ -886,6 +897,217 @@ export function HouseholdUtilitiesCard({
             ))}
           </ul>
         </Callout>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * Everything that could make the numbers above wrong, in one place.
+ *
+ * These used to be scattered: the engine's own caveats sat at the bottom of the
+ * payment card, and the parcel-level ones — the appraisal gap, an unknown flood
+ * zone, a split school district, a district with no published rate — sat in the
+ * left-hand input column next to the address box, which is the easiest place on
+ * the page to miss. A buyer reading only the headline numbers never saw them.
+ *
+ * Ordered by severity, because "this address is not in Clear Creek ISD" and
+ * "confirm the HOA dues" do not deserve equal billing.
+ */
+export function RisksCard({
+  scenario,
+  state,
+  update,
+  gap,
+}: {
+  scenario: ScenarioResult;
+  state: CalculatorState;
+  update: UpdateState;
+  gap: AppraisalGapAssessment | null;
+}) {
+  const parcel = state.resolvedParcel;
+  const items: {
+    key: string;
+    tone: "bad" | "warn";
+    title: string;
+    body: ReactNode;
+  }[] = [];
+
+  if (parcel && !parcel.isClearCreekIsd) {
+    items.push({
+      key: "out-of-district",
+      tone: "bad",
+      title: "This address is not in Clear Creek ISD",
+      body: (
+        <>
+          It is billed by{" "}
+          {parcel.schoolNames[0] ?? "another school district"}
+          {parcel.schoolCodes[0] ? ` (${parcel.schoolCodes[0]})` : ""}. Every
+          rate and every assistance programme here is scoped to Clear Creek
+          ISD, so treat all of it as a warning rather than a quote. Confirm the
+          district on the{" "}
+          <a
+            href="https://www.ccisd.net/district-map"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2"
+          >
+            CCISD school finder
+          </a>
+          .
+        </>
+      ),
+    });
+  }
+
+  if (parcel?.splitBetweenSchoolDistricts) {
+    items.push({
+      key: "split-district",
+      tone: "bad",
+      title: "This parcel is split between school districts",
+      body: (
+        <>
+          The appraisal record bills it by {parcel.schoolNames.join(" and ")},
+          apportioning the value between them. This calculator prices the whole
+          value in Clear Creek ISD; ask the appraisal district for the
+          apportionment before relying on the tax figure.
+        </>
+      ),
+    });
+  }
+
+  if (gap?.direction === "roll-below-price") {
+    items.push({
+      key: "roll-below",
+      tone: "bad",
+      title: "The tax will probably go up after you buy",
+      body: (
+        <>
+          The roll is {formatUSD(-gap.gap, 0)} below your price. Reassessed at
+          what you are paying, the tax is{" "}
+          <strong>{formatUSD(gap.monthlyAtRiskOrSaving)} a month more</strong>,
+          and the escrow collected at closing is sized off today&apos;s lower
+          bill — so the servicer will raise the payment once the new value
+          lands. The 10% homestead cap does not stop this first reset.{" "}
+          <button
+            type="button"
+            onClick={() =>
+              update("taxAppraisedValueOverride", gap.purchasePrice)
+            }
+            className="font-medium underline underline-offset-2"
+          >
+            Bill the tax at my purchase price instead
+          </button>
+          .
+        </>
+      ),
+    });
+  }
+
+  if (parcel && parcel.flood == null) {
+    items.push({
+      key: "flood-unknown",
+      tone: "bad",
+      title: "Flood zone unknown",
+      body: (
+        <>
+          No geometry resolved for this parcel, so the FEMA layer could not be
+          tested and the payment carries no flood premium. That is a gap in the
+          data, not a finding that the address is outside a flood zone — and the
+          premium is often $100 to $200 a month. Check{" "}
+          <a
+            href="https://msc.fema.gov/portal/search"
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2"
+          >
+            the FEMA map
+          </a>{" "}
+          yourself.
+        </>
+      ),
+    });
+  }
+
+  if (parcel && parcel.missingRateCodes.length > 0) {
+    items.push({
+      key: "missing-rates",
+      tone: "bad",
+      title: "A taxing district here has no published rate",
+      body: (
+        <>
+          {parcel.missingRateCodes.map((r) => r.name).join(", ")} bills this
+          parcel, but the county publishes no rate for it — it is collected
+          privately. Enter the rate from the appraisal record under More
+          options. A district left at zero is the largest possible
+          understatement of this payment.
+        </>
+      ),
+    });
+  }
+
+  if (
+    parcel?.totalValue != null &&
+    parcel.improvementValue === 0 &&
+    (parcel.landValue ?? 0) > 0
+  ) {
+    items.push({
+      key: "unimproved",
+      tone: "warn",
+      title: "Assessed as an unimproved lot",
+      body: (
+        <>
+          The record shows land value but no improvement value, which is how new
+          construction is carried for its first year. The tax above is a
+          bare-lot bill and will rise sharply once the house is on the roll.
+        </>
+      ),
+    });
+  }
+
+  for (const warning of scenario.warnings) {
+    items.push({
+      key: warning.slice(0, 48),
+      tone: "warn",
+      title: "",
+      body: warning,
+    });
+  }
+
+  if (items.length === 0) {
+    return (
+      <Card
+        title="Before you trust these numbers"
+        subtitle="Everything that could move them, ranked by how much it matters."
+      >
+        <Callout tone="good">
+          Nothing outstanding. The address resolved to a Clear Creek ISD parcel,
+          every taxing unit on it has a published rate, the flood zone is known
+          and the appraisal roll is in line with your price. The insurance
+          figures are still estimates — get real quotes.
+        </Callout>
+      </Card>
+    );
+  }
+
+  const bad = items.filter((i) => i.tone === "bad");
+  const warn = items.filter((i) => i.tone === "warn");
+
+  return (
+    <Card
+      title="Before you trust these numbers"
+      subtitle={`${items.length} thing${items.length === 1 ? "" : "s"} could move the figures above. The first ones matter most.`}
+    >
+      <div className="space-y-3">
+        {[...bad, ...warn].map((item) => (
+          <Callout
+            key={item.key}
+            tone={item.tone}
+            title={item.title || undefined}
+          >
+            {item.body}
+          </Callout>
+        ))}
       </div>
     </Card>
   );

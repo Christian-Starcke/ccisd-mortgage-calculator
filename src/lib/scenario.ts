@@ -34,7 +34,6 @@ import {
   type AssistanceProgram,
 } from "./assistance";
 import { HOUSTON_MSA_LOAN_LIMITS_2026 } from "@/data/loanLimits";
-import { assessAppraisalGap } from "./appraisalGap";
 import type {
   CalculatorInputs,
   CashToCloseBreakdown,
@@ -146,26 +145,17 @@ export function buildScenario(
   const warnings: string[] = [];
 
   /*
-   * A roll below the purchase price is the one gap that makes this payment
-   * look cheaper than it will be, so it is warned about here rather than only
-   * next to the address. The district normally reassesses toward the sale
-   * price for the following tax year, and the 10% homestead cap does not stop
-   * that first reset.
+   * The appraisal-roll gap is deliberately NOT warned about here.
    *
-   * The opposite direction is upside rather than risk, and is handled as a
-   * ranked action instead of a caveat.
+   * It was, briefly, and it produced the same problem twice on screen: the
+   * risks card raises it too, and needs to, because it carries the control
+   * that re-bills the tax at the purchase price. Two entries for one problem
+   * made the count wrong and the card repetitive.
+   *
+   * `assessAppraisalGap` is the reusable piece — any consumer of this engine,
+   * headless or otherwise, can call it with the same inputs and get the same
+   * answer. Presentation of it belongs to the caller.
    */
-  const appraisalGap = assessAppraisalGap({
-    appraisedValue: property.taxAppraisedValue,
-    purchasePrice: property.purchasePrice,
-    units: property.taxingUnits,
-    claimHomestead: property.claimHomestead,
-  });
-  if (appraisalGap.direction === "roll-below-price") {
-    warnings.push(
-      `The appraisal roll is ${formatUSD(-appraisalGap.gap, 0)} below your price, so this tax figure is the first year rather than the steady state. Reassessed at what you are paying, the tax is ${formatUSD(appraisalGap.monthlyAtRiskOrSaving)} a month more, and the escrow the lender collects at closing is sized off today's lower bill — so expect the servicer to raise the payment once the new value lands.`,
-    );
-  }
 
   if (property.hoaEstimated) {
     warnings.push(

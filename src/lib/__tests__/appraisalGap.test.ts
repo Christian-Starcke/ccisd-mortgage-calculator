@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { assessAppraisalGap, MATERIAL_GAP_FRACTION } from "@/lib/appraisalGap";
 import { calculatePropertyTax } from "@/lib/propertyTax";
 import { requireUnit } from "@/lib/lookups/resolveCodes";
+import { DEFAULT_STATE } from "@/lib/defaults";
+import { buildCalculatorInputs, buildScenarioOptions } from "@/lib/buildFromState";
+import { buildScenario } from "@/lib/scenario";
 
 /** A real League City stack: no utility district, four units. */
 const LEAGUE_CITY = [
@@ -134,5 +137,38 @@ describe("edge cases", () => {
     expect(g.monthlyAtRiskOrSaving).toBeGreaterThan(0);
     // Nothing anywhere goes negative.
     expect(g.annualTaxAtPrice).toBeGreaterThan(g.annualTaxAtRoll);
+  });
+});
+
+/**
+ * The risks card raises the low-roll gap itself, because it carries the
+ * control that re-bills the tax at the purchase price. The engine must not
+ * also warn about it, or one problem shows up twice and the count is wrong.
+ */
+describe("the engine leaves presentation of the gap to the caller", () => {
+  it("does not duplicate the low-roll gap in scenario warnings", () => {
+    const state = {
+      ...DEFAULT_STATE,
+      purchasePrice: 400_000,
+      taxAppraisedValueOverride: 233_790,
+    };
+    const scenario = buildScenario(
+      buildCalculatorInputs(state),
+      buildScenarioOptions(state),
+    );
+
+    // The gap is real at these inputs...
+    const g = assessAppraisalGap({
+      appraisedValue: scenario.propertyTax.appraisedValue,
+      purchasePrice: scenario.purchasePrice,
+      units: scenario.propertyTax.lineItems.map((r) => r.unit),
+      claimHomestead: scenario.propertyTax.homesteadApplied,
+    });
+    expect(g.direction).toBe("roll-below-price");
+
+    // ...and the engine still says nothing about it.
+    expect(
+      scenario.warnings.some((w) => /appraisal roll is/i.test(w)),
+    ).toBe(false);
   });
 });

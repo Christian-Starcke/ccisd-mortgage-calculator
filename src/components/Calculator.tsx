@@ -22,7 +22,10 @@ import {
   type RankedPath,
 } from "@/lib/pathRank";
 import { buildScenario, type ScenarioResult } from "@/lib/scenario";
-import { assessAppraisalGap } from "@/lib/appraisalGap";
+import {
+  assessAppraisalGap,
+  type AppraisalGapAssessment,
+} from "@/lib/appraisalGap";
 import { assessWaterService } from "@/lib/waterService";
 import { estimateHouseholdUtilities } from "@/lib/householdUtilities";
 import {
@@ -45,8 +48,8 @@ import {
 import {
   AffordabilityCard,
   CashToCloseCard,
-  HouseholdUtilitiesCard,
-  WaterServiceCard,
+  RisksCard,
+  TrueMonthlyCostCard,
   Milestones,
   PaymentSummary,
   TaxBreakdown,
@@ -79,6 +82,7 @@ export function Calculator() {
     savingsActions,
     water,
     utilities,
+    appraisalGap,
   } = useMemo(() => derive(deferredState), [deferredState]);
 
   const selectPath = (path: RankedPath) => {
@@ -146,27 +150,42 @@ export function Calculator() {
           id="results"
           className="min-w-0 space-y-6 scroll-mt-4 scroll-mb-28"
         >
+          {/*
+            Ordered for someone who already has a listing and wants to know
+            what owning it costs: the payment, the cash, the all-in monthly,
+            then what could move any of them. Affordability is a ceiling rather
+            than an answer to that question, so it sits under More details.
+          */}
           <PaymentSummary
             scenario={detailScenario}
+            water={water}
             cashAvailable={state.cashAvailable}
           />
           <CashToCloseCard
             scenario={detailScenario}
             cashAvailable={state.cashAvailable}
           />
-          <WaterServiceCard
-            water={water}
-            scenario={detailScenario}
-            hasParcel={state.resolvedParcel != null}
-          />
-          <HouseholdUtilitiesCard
+          <TrueMonthlyCostCard
             utilities={utilities}
             scenario={detailScenario}
           />
-          <AffordabilityCard affordability={affordability} state={state} />
+          <RisksCard
+            scenario={detailScenario}
+            state={state}
+            update={update}
+            gap={appraisalGap}
+          />
 
           <Card title="More details">
             <div className="space-y-2">
+              <Disclosure summary="The most a lender would approve">
+                <div className="pt-2">
+                  <AffordabilityCard
+                    affordability={affordability}
+                    state={state}
+                  />
+                </div>
+              </Disclosure>
               <Disclosure summary="Ways to save more">
                 <div className="pt-2">
                   <SavingsPlaybook actions={savingsActions} />
@@ -509,6 +528,14 @@ function derive(state: CalculatorState) {
     taxEscrowMonths: detailScenario.closingCosts.taxEscrowMonths,
   });
 
+  const appraisalGap = assessAppraisalGap({
+    appraisedValue: detailScenario.propertyTax.appraisedValue,
+    purchasePrice: detailScenario.purchasePrice,
+    units: detailScenario.propertyTax.lineItems.map((row) => row.unit),
+    claimHomestead: detailScenario.propertyTax.homesteadApplied,
+    taxEscrowMonths: detailScenario.closingCosts.taxEscrowMonths,
+  });
+
   const utilities = estimateHouseholdUtilities({
     service: water.service,
     taxingUnits: detailScenario.propertyTax.lineItems.map((row) => row.unit),
@@ -528,10 +555,12 @@ function derive(state: CalculatorState) {
     affordability,
     water,
     utilities,
+    appraisalGap,
     savingsActions: buildSavingsActions({
       state: detailState,
       scenario: detailScenario,
       comparisonRows,
+      gap: appraisalGap,
     }),
   };
 }
@@ -540,10 +569,12 @@ function buildSavingsActions({
   state,
   scenario,
   comparisonRows,
+  gap,
 }: {
   state: CalculatorState;
   scenario: ScenarioResult;
   comparisonRows: ProgramComparisonRow[];
+  gap: AppraisalGapAssessment;
 }): SavingsAction[] {
   const actions: SavingsAction[] = [];
   const horizon = state.horizonYears;
@@ -672,14 +703,6 @@ function buildSavingsActions({
    * the current roll, which is what will really be billed until the protest
    * succeeds.
    */
-  const gap = assessAppraisalGap({
-    appraisedValue: scenario.propertyTax.appraisedValue,
-    purchasePrice: scenario.purchasePrice,
-    units: scenario.propertyTax.lineItems.map((row) => row.unit),
-    claimHomestead: scenario.propertyTax.homesteadApplied,
-    taxEscrowMonths: scenario.closingCosts.taxEscrowMonths,
-  });
-
   /**
    * Base for the recurring protest tip below. If the value is first corrected
    * down to the sale price, every later protest argues against that lower

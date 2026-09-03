@@ -17,11 +17,8 @@ import {
   assessWindExposure,
   HOMEOWNERS_RATE_PER_THOUSAND,
 } from "@/lib/windstorm";
-import { assessAppraisalGap } from "@/lib/appraisalGap";
 import { districtWaterBillFor } from "@/lib/householdUtilities";
 import { Badge, Callout, Field, TextInput } from "./ui";
-
-const CCISD_MAP_URL = "https://www.ccisd.net/district-map";
 
 function countyLabel(county: "harris" | "galveston"): string {
   return county === "harris" ? "Harris County" : "Galveston County";
@@ -201,18 +198,6 @@ export function AddressLookup({
 
   const parcel = state.resolvedParcel;
 
-  // Which way the roll and the price disagree decides whether this is an
-  // opportunity or a risk, and the two read very differently to a buyer.
-  const gap =
-    parcel?.totalValue != null && state.purchasePrice > 0
-      ? assessAppraisalGap({
-          appraisedValue: state.taxAppraisedValueOverride ?? parcel.totalValue,
-          purchasePrice: state.purchasePrice,
-          units: parcel.taxingUnits,
-          claimHomestead: state.claimHomestead,
-        })
-      : null;
-
   return (
     <div className="space-y-3">
       <Field
@@ -337,36 +322,6 @@ export function AddressLookup({
             )}
           </div>
 
-          {!parcel.isClearCreekIsd && (
-            <Callout tone="bad" title="This address is not in Clear Creek ISD">
-              The parcel is billed by{" "}
-              {parcel.schoolNames[0] ?? "another school district"}
-              {parcel.schoolCodes[0] ? ` (${parcel.schoolCodes[0]})` : ""}. This
-              calculator is built for Clear Creek ISD tax rates and assistance
-              geography. Confirm the district on the{" "}
-              <a
-                href={CCISD_MAP_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="underline underline-offset-2"
-              >
-                CCISD school finder
-              </a>{" "}
-              before you trust any number here.
-            </Callout>
-          )}
-
-          {parcel.splitBetweenSchoolDistricts && (
-            <Callout tone="bad" title="This parcel is split between school districts">
-              The appraisal record bills it by {parcel.schoolNames.join(" and ")}
-              , apportioning the value between them. That happens on parcels
-              straddling a district line, and this calculator does not model the
-              split — it prices the whole value in Clear Creek ISD. Ask the
-              appraisal district for the apportionment before relying on the tax
-              figure.
-            </Callout>
-          )}
-
           {parcel.ref.county === "galveston" && (
             <Callout tone="warn" title="Galveston County data is a yearly snapshot">
               Galveston CAD publishes no live parcel service, so this record
@@ -412,82 +367,6 @@ export function AddressLookup({
               read the seller’s off the record the way I can in Galveston
               County. Whatever exemption the seller holds does not transfer:
               homestead resets on sale and you must file your own.
-            </Callout>
-          )}
-
-          {gap?.direction === "roll-below-price" && (
-            <Callout
-              tone="bad"
-              title="The tax below will probably go up after you buy"
-            >
-              The appraisal district has this parcel at{" "}
-              {formatUSD(gap.appraisedValue, 0)} against a price of{" "}
-              {formatUSD(gap.purchasePrice, 0)} — {formatUSD(-gap.gap, 0)} below
-              what you are paying. The payment below bills the current roll,
-              because that is what will be billed this year, but a sale is the
-              strongest evidence of value there is and the district normally
-              reassesses toward the price for the next tax year. At your price
-              the tax is{" "}
-              <strong>{formatUSD(gap.monthlyAtRiskOrSaving)} a month more</strong>
-              , so treat the figure below as the first year rather than the
-              steady state. The 10% homestead cap does not stop this first
-              reset: it only applies once you have held the homestead a full
-              year.{" "}
-              <button
-                type="button"
-                onClick={() =>
-                  update("taxAppraisedValueOverride", gap.purchasePrice)
-                }
-                className="font-medium underline underline-offset-2"
-              >
-                Bill the tax at my purchase price instead
-              </button>
-              .
-            </Callout>
-          )}
-
-          {gap?.direction === "roll-above-price" && (
-            <Callout
-              tone="good"
-              title="The tax below is higher than your price supports"
-            >
-              The appraisal district has this parcel at{" "}
-              {formatUSD(gap.appraisedValue, 0)} against a price of{" "}
-              {formatUSD(gap.purchasePrice, 0)} — {formatUSD(gap.gap, 0)} above
-              what you are paying. That runs in your favour: a recent
-              arm&apos;s-length sale below the appraised value is the strongest
-              evidence an appraisal review board sees, so bring your closing
-              statement and protest. Getting the value down to your price is{" "}
-              <strong>
-                {formatUSD(-gap.monthlyAtRiskOrSaving)} a month
-              </strong>
-              . The payment below still bills the roll, because that is what you
-              will be billed until the protest succeeds.
-            </Callout>
-          )}
-
-          {parcel.totalValue != null &&
-            parcel.improvementValue === 0 &&
-            (parcel.landValue ?? 0) > 0 && (
-              <Callout tone="warn" title="Assessed as an unimproved lot">
-                The record shows land value but no improvement value, which is
-                how new construction is usually assessed for its first year.
-                The tax below is a bare-lot bill and will rise sharply once the
-                house is on the roll — by much more than the gap above.
-              </Callout>
-            )}
-
-          {parcel.missingRateCodes.length > 0 && (
-            <Callout
-              tone="warn"
-              title="Some districts are not on the county rate roll"
-            >
-              {parcel.missingRateCodes.map((r) => r.code).join(", ")}{" "}
-              {parcel.missingRateCodes.length === 1 ? "is" : "are"} billed by a
-              private collector or missing from the county table. Enter{" "}
-              {parcel.missingRateCodes.length === 1 ? "its" : "their"} rate
-              below rather than treating{" "}
-              {parcel.missingRateCodes.length === 1 ? "it" : "them"} as zero.
             </Callout>
           )}
 

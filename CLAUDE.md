@@ -136,6 +136,28 @@ and coastal Houston. The program stays in the catalog so the comparison can say
 what is unavailable instead of going quiet, and the lookup stays because it is
 cheap and honest. Do not delete either; do not pretend it might apply.
 
+## The results column is ordered for one user
+
+Someone who already has a listing and wants to know what owning it costs. In
+order: **payment, cash to close, all-in monthly, then what could move any of
+them.** Affordability is a ceiling rather than an answer to that question, so it
+lives under "More details" — do not promote it back to the top.
+
+- Water service is a **disclosure inside the payment card**, not a peer. It
+  explains the payment rather than adding to it. The summary line stays outside
+  the fold because it is still the largest cost a listing never states.
+- `RisksCard` is the single home for anything that could make the numbers
+  wrong. Parcel-level risks used to sit in the left input column beside the
+  address box, which is the easiest place on the page to miss.
+- It is ordered by severity: "not in Clear Creek ISD" and "confirm the HOA
+  dues" do not deserve equal billing.
+- **Do not also warn from the engine about something the card renders.** The
+  low-roll appraisal gap was in both and showed up twice, with the count wrong.
+  `scenario.warnings` is for engine-level caveats only; anything needing a
+  control belongs to the card. There is a test.
+- `AddressLookup` keeps only *lookup context* — what was found, which county,
+  how current, whose exemptions those are. Risks go to the card.
+
 ## Appraisal gap: two directions, opposite meanings
 
 `src/lib/appraisalGap.ts`, one model for both so the UI cannot warn about a gap
