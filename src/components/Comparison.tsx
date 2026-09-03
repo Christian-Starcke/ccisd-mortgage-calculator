@@ -3,6 +3,7 @@
 import { formatPercent, formatUSD } from "@/lib/money";
 import type { EligibilityFinding } from "@/lib/loanPrograms";
 import type { ScenarioResult } from "@/lib/scenario";
+import type { County } from "@/lib/propertyTax";
 import type { CalculatorState } from "@/lib/defaults";
 import type { AssistanceEvaluation } from "@/lib/assistance";
 import type { LoanProgramId } from "@/lib/types";
@@ -290,8 +291,11 @@ export function ProgramComparison({
 
 export function AssistancePlaybook({
   scenario,
+  county = null,
 }: {
   scenario: ScenarioResult;
+  /** Which appraisal district bills the parcel, when one has been picked. */
+  county?: County | null;
 }) {
   const { evaluations, accepted, rejected } = scenario.assistance;
 
@@ -306,6 +310,29 @@ export function AssistancePlaybook({
       title="Assistance programs"
       subtitle="Ranked by what each one is actually worth to you. Anything marked for verification needs a phone call before you count on it."
     >
+      {/*
+        A shorter list on the Galveston side is not the same as a shorter list
+        of what exists. No countywide programme could be confirmed there, and
+        saying nothing would let a League City buyer read the absence as "there
+        is nothing" — a different and unearned claim.
+      */}
+      {county === "galveston" && (
+        <div className="mb-5">
+          <Callout
+            tone="warn"
+            title="No Galveston County programme is modelled — unconfirmed, not absent"
+          >
+            Everything below is statewide. No countywide down payment
+            assistance for Galveston County could be confirmed from a primary
+            source, and the City of Galveston runs one that does not reach this
+            school district. That is a gap in what could be verified rather
+            than a finding that nothing exists, and roughly 44% of Clear Creek
+            ISD is on this side of the county line — so call Galveston County
+            and your city before treating this list as complete. Nothing has
+            been assumed on your behalf either way.
+          </Callout>
+        </div>
+      )}
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
         <Stat
           label="Assistance at closing"

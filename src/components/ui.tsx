@@ -204,6 +204,75 @@ export function PercentInput({
 }
 
 /**
+ * A rate quoted in cents but stored in dollars.
+ *
+ * `CurrencyInput` formats to whole dollars and rounds on focus, so a per-unit
+ * rate like $0.15 a kWh displayed as "$0" and collapsed to zero the moment the
+ * field was touched. Utility rates in this district are all sub-dollar —
+ * electricity per kWh, the gas pass-through per Ccf — so they get their own
+ * control, working in display units the way `PercentInput` does rather than
+ * fighting the currency formatter.
+ */
+export function CentsInput({
+  value,
+  onChange,
+  min = 0,
+  max = 1000,
+  decimals = 2,
+  unit,
+  id,
+}: {
+  /** Stored in dollars per unit, e.g. 0.15. */
+  value: number;
+  onChange: (dollarsPerUnit: number) => void;
+  min?: number;
+  max?: number;
+  decimals?: number;
+  /** What the rate is per, e.g. "kWh" — shown after the cent sign. */
+  unit?: string;
+  id?: string;
+}) {
+  const { draft, setDraft, setEmitted } = useNumericDraft(value);
+  const asCents = value * 100;
+
+  const display =
+    draft !== null ? draft : `${Number.parseFloat(asCents.toFixed(decimals))}`;
+
+  const emit = (dollars: number) => {
+    setEmitted(dollars);
+    onChange(dollars);
+  };
+
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        className={unit ? "text-input pr-20" : "text-input pr-8"}
+        inputMode="decimal"
+        autoComplete="off"
+        enterKeyHint="done"
+        value={display}
+        onFocus={() => setDraft(display)}
+        onChange={(event) => {
+          const next = event.target.value;
+          setDraft(next);
+          const parsed = parseLooseNumber(next);
+          if (parsed !== null) {
+            emit(Math.min(Math.max(parsed, min), max) / 100);
+          } else if (next.trim() === "") {
+            emit(0);
+          }
+        }}
+        onBlur={() => setDraft(null)}
+      />
+      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">
+        {unit ? `¢/${unit}` : "¢"}
+      </span>
+    </div>
+  );
+}
+
+/**
  * Number input with the same draft treatment as the currency and percent
  * inputs. Without it, typing into a pre-populated field appends to what is
  * already there ("3" then "4" reads as "34") and the mid-keystroke clamp

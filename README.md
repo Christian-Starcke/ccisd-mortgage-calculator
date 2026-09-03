@@ -175,10 +175,11 @@ confirmed from a primary source. Beyond those:
 | City of Houston water and sewer | April 2026 | Rates effective April 2026; single-family refuse is funded from general revenue, not a separate charge. |
 | Webster water, sewer, drainage | Ordinance 24-12 | $10.71 + $4.82/1,000 water, $16.13 + $7.17 sewer, $1.24 drainage fee. Refuse not in the ordinance. |
 | Seabrook water, sewer, refuse | Refuse Oct 2025 | $21.60 + $7.56/1,000 water, $25.00 + $6.53 sewer, refuse $32.06. The dearest city bill in the district. |
-| Friendswood sewer | Published | $32.00 + $4.90/1,000. Water and refuse not read, so the city stays marked as an estimate. |
+| Friendswood water, sewer, refuse | Published | $26.95 incl. 3,000 gal + $3.70/1,000 water; $32.00 incl. 2,000 + $4.90 sewer; refuse $23.10 + tax to Waste Connections. Outside city limits, 1.5x. |
 | Clear Lake City Water Authority | Policy R&S-90, Aug 2024 | Single-family billing is **bimonthly**: 10,000 gallons a bill, the equivalent of 5,000 a month, is $55.10 — about $27.55 monthly. The cheapest water in the district, because the authority funds debt service through its $0.25 per $100 tax instead. |
 | Pasadena water, sewer, garbage | FY 2026, Oct 2025 | $14.04 + $3.92/1,000 water, $14.03 + $3.91 sewer billed on 90% of water, garbage $33.95. |
 | Nassau Bay water and sewer | Approved Nov 2025 | $15.00 base + $3.99/1,000 water, $16.98 + $2.95 sewer. Neither base includes any gallons. |
+| Natural gas | CenterPoint R-2099-GRIP 2026 | $24.83 fixed customer charge plus $0.15834/Ccf commodity, plus the Purchased Gas Adjustment pass-through (~$0.55, refiled periodically). Usage from the RRC's Houston residential average of 34 Ccf/month. |
 | Houston-area electricity | 2026 | About 14.35¢/kWh average, plans 12–19¢; ~1,150 kWh a month for an average residence. Deregulated, so the rate is a shopping decision. |
 | Conforming loan limit | 2026: $832,750 | FHFA, announced November 2025. |
 | FHA loan limit | 2026: $541,287 | HUD Mortgagee Letter 2025-23. One figure for the whole district: Harris and Galveston are both in the Houston-Pasadena-The Woodlands MSA. |
@@ -306,12 +307,16 @@ security; the ingest script needs a service key, which is never used by the app.
   connections in five when measured. The lookup retries, which takes the miss
   rate under 7%, but a miss still reports the zone as unknown rather than
   showing no premium.
-- **Utility estimates are estimates.** Household usage moves them more than any
-  address does. Every city in the district now uses its own published schedule
-  except Friendswood, which is half-sourced — its sewer is published, its water
-  and refuse are not — and the UI labels it accordingly. Refuse is a regional
-  estimate for Webster and Nassau Bay, which do not publish one alongside water.
-  Natural gas is not from CenterPoint's tariff.
+- **Utility estimates are estimates**, but the rates behind them are now
+  sourced. Every water supplier in the district uses its own published
+  schedule, and gas comes from CenterPoint's filed tariff. What remains
+  estimated is *usage* — which moves these numbers more than any address does —
+  plus the gas pass-through, which is refiled as the market moves, and refuse
+  for Webster and Nassau Bay, neither of which publishes one alongside water.
+- **No Galveston County down payment assistance is modelled**, because none
+  could be confirmed from a primary source. The UI says so on a Galveston
+  address rather than letting a shorter list read as "there is nothing" — the
+  gap is in what could be verified, not necessarily in what exists.
 - **Four of the cities here do not supply water at all**, which is why their
   schedules were never needed: Kemah has no city water (Galveston County WCID
   12 serves most of it), Clear Lake Shores is entirely inside WCID 12, El Lago

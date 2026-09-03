@@ -191,10 +191,21 @@ identical across wildly different utility inputs — do not delete it.
   vary by address; do not make it.
 - Gas defaults off — much of this district is all-electric, and that is a
   property attribute, not something the address settles.
-- Confidence markers are load-bearing. Every city is now `sourced` from its own
-  schedule except Friendswood, which stays `estimated` because only its sewer
-  was read — do not promote a half-read provider. Never mark something
-  `sourced` without having read the provider's own schedule.
+- Confidence markers are load-bearing. Every water supplier is now `sourced`
+  from its own schedule. Never mark something `sourced` without having read the
+  provider's own schedule — a half-read provider stays `estimated`.
+- **Gas is the tariff, not a flat number.** `centerPointGasBill` is a fixed
+  $24.83 customer charge plus (commodity + PGA) per Ccf. The seasonal factors
+  apply to *usage*, never to the bill: the standing charge does not scale, and
+  scaling the whole bill by a summer factor understated July by more than half.
+  That was the bug this replaced.
+- Sub-dollar rates use `CentsInput`, not `CurrencyInput`. The latter formats to
+  whole dollars and rounds on focus, so $0.15/kWh rendered as "$0" and
+  collapsed to zero when touched.
+- **Absence is not a finding.** No Galveston County assistance programme could
+  be confirmed, so the UI says that on a Galveston address. Do not let a
+  shorter list imply a shorter list of what exists, and do not invent a
+  placeholder programme to fill it.
 - **CLCWA bills single-family customers bimonthly**, not monthly. Its schedule
   is per two-month bill; the stored figure is already halved. Getting this wrong
   doubles the water bill on more parcels than any other district here.

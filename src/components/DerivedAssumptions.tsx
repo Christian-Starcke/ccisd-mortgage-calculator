@@ -24,8 +24,13 @@ import {
   HOMEOWNERS_RATE_PER_THOUSAND,
 } from "@/lib/windstorm";
 import {
+  CENTERPOINT_COMMODITY_PER_CCF,
+  CENTERPOINT_CUSTOMER_CHARGE,
+} from "@/lib/householdUtilities";
+import {
   Callout,
   Card,
+  CentsInput,
   CurrencyInput,
   Disclosure,
   Field,
@@ -330,11 +335,13 @@ export function DerivedAssumptions({
                 htmlFor="kwh-rate"
                 hint="Texas is deregulated, so this is yours to shop. Plans ran 12¢ to 19¢ in 2026."
               >
-                <CurrencyInput
+                <CentsInput
                   id="kwh-rate"
                   value={state.electricityRatePerKwh}
                   onChange={(value) => update("electricityRatePerKwh", value)}
-                  max={1}
+                  unit="kWh"
+                  max={100}
+                  decimals={2}
                 />
               </Field>
             </div>
@@ -346,18 +353,48 @@ export function DerivedAssumptions({
               hint="Many homes in this district are all-electric and pay nothing for gas. Check the listing rather than assuming."
             />
             {state.hasNaturalGas && (
-              <Field
-                label="Natural gas per month"
-                htmlFor="gas-monthly"
-                hint="Annual average. It is heating and hot water, so January can be twice this and July close to nothing."
-              >
-                <CurrencyInput
-                  id="gas-monthly"
-                  value={state.monthlyGas}
-                  onChange={(value) => update("monthlyGas", value)}
-                  max={500}
-                />
-              </Field>
+              <>
+                <Callout tone="neutral">
+                  Gas is CenterPoint&apos;s filed tariff rather than a flat
+                  estimate: a fixed $
+                  {CENTERPOINT_CUSTOMER_CHARGE.toFixed(2)} customer charge
+                  every month whatever you burn, plus{" "}
+                  {Math.round(
+                    (CENTERPOINT_COMMODITY_PER_CCF + state.gasPgaPerCcf) * 100,
+                  )}
+                  ¢ per Ccf. The fixed part is why a July gas bill does not
+                  fall to nothing.
+                </Callout>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Gas usage"
+                    htmlFor="gas-ccf"
+                    hint="Annual average. The Railroad Commission puts Houston residences at about 34 Ccf a month, and it is nearly all space heating."
+                  >
+                    <NumberInput
+                      id="gas-ccf"
+                      value={state.gasCcfPerMonth}
+                      onChange={(value) => update("gasCcfPerMonth", value)}
+                      min={0}
+                      max={400}
+                    />
+                  </Field>
+                  <Field
+                    label="Gas cost per Ccf"
+                    htmlFor="gas-pga"
+                    hint="The Purchased Gas Adjustment: the cost of the gas itself, passed straight through and refiled as the market moves."
+                  >
+                    <CentsInput
+                      id="gas-pga"
+                      value={state.gasPgaPerCcf}
+                      onChange={(value) => update("gasPgaPerCcf", value)}
+                      unit="Ccf"
+                      max={500}
+                      decimals={2}
+                    />
+                  </Field>
+                </div>
+              </>
             )}
 
             <Field

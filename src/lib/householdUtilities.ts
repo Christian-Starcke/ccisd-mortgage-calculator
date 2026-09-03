@@ -161,14 +161,15 @@ const CITY_WATER_RATES: Record<string, WaterProviderRate> = {
   },
   "058": {
     name: "City of Friendswood",
-    // Only the sewer schedule was read: $32.00 minimum covering the first
-    // 2,000 gallons plus $4.90 per thousand, so $46.70 at 5,000. The water and
-    // refuse halves are the regional placeholder, which is why this stays
-    // marked as an estimate rather than sourced.
-    waterAndSewer: 82,
-    refuse: 22,
-    confidence: "estimated",
-    note: "Friendswood's sewer schedule is published and works out to about $46.70 at 5,000 gallons — a high minimum at $32.00. The water and refuse halves have not been read, so the total here is part sourced and part placeholder. Check the city's utility billing page before relying on it.",
+    // Water $26.95 including the first 3,000 gallons, then $3.70 per thousand;
+    // sewer $32.00 including 2,000, then $4.90. So $34.35 + $46.70. Both
+    // minimums are high and both carry an allowance, which makes this the city
+    // where low usage is punished least.
+    waterAndSewer: 81.05,
+    // $23.10 plus 8.25% sales tax, to Waste Connections.
+    refuse: 25.01,
+    confidence: "sourced",
+    note: "Water is $26.95 for the first 3,000 gallons then $3.70 per thousand; sewer is $32.00 for the first 2,000 then $4.90. Refuse is $23.10 plus sales tax to Waste Connections, covering rubbish twice weekly plus recycling and green waste. Outside the city limits every charge is 1.5 times these figures.",
     sourceUrl: "https://www.ci.friendswood.tx.us/246/Utility-Billing",
   },
   "074": {
@@ -194,9 +195,9 @@ const CITY_WATER_RATES: Record<string, WaterProviderRate> = {
   },
   C37: {
     name: "City of Friendswood",
-    waterAndSewer: 82,
-    refuse: 22,
-    confidence: "estimated",
+    waterAndSewer: 81.05,
+    refuse: 25.01,
+    confidence: "sourced",
     note: "The Galveston County part of Friendswood is billed by the same city utility as the Harris County part.",
     sourceUrl: "https://www.ci.friendswood.tx.us/246/Utility-Billing",
   },
@@ -317,15 +318,73 @@ export function districtWaterBillFor(
 // ---------------------------------------------------------------------------
 
 /**
- * Natural gas, where the house has it. Many homes in this district are
- * all-electric, so this is a property attribute rather than something the
- * address settles, and it defaults to off.
+ * Natural gas, where the house has it, from CenterPoint's filed tariff.
  *
- * Deliberately marked `estimated`: CenterPoint's residential tariff was not
- * read for this figure, and gas is strongly seasonal because it is heating and
- * hot water rather than cooling.
+ * CenterPoint Energy (Entex) is the gas distribution utility for this whole
+ * area, and residential service is Rate Schedule R-2099-GRIP 2026. The bill is
+ * three parts, and modelling it as one flat number gets the shape wrong:
+ *
+ *   a fixed customer charge, paid every month whatever you burn;
+ *   a commodity charge per Ccf, which is CenterPoint's delivery margin;
+ *   the Purchased Gas Adjustment, a per-Ccf pass-through of what the gas
+ *   itself cost, reset periodically.
+ *
+ * The fixed charge is why gas does not fall away in summer the way a
+ * percentage-of-average estimate implies. At the RRC's Houston residential
+ * average of 34 Ccf a month the bill is around $49; in July, on the ~8 Ccf a
+ * water heater and range use, it is about $30 — and $24.83 of that is the
+ * standing charge. Scaling the whole bill by a summer factor understated July
+ * by more than half.
+ *
+ * The customer charge is identical for incorporated and unincorporated areas
+ * in the Houston rate area, so nothing here depends on whether the address is
+ * inside a city.
  */
-export const DEFAULT_GAS_MONTHLY = 40;
+
+/** Fixed monthly charge, Houston and Texas Coast rate areas. Sourced. */
+export const CENTERPOINT_CUSTOMER_CHARGE = 24.83;
+
+/**
+ * Commodity charge per Ccf, Houston rate area at the 14.65 pressure base.
+ * Sourced. The other pressure bases differ by well under a cent.
+ */
+export const CENTERPOINT_COMMODITY_PER_CCF = 0.15834;
+
+/**
+ * Purchased Gas Adjustment per Ccf. This is the cost of the gas itself, passed
+ * straight through and refiled periodically as the market moves, so it is the
+ * one part of the bill that cannot be pinned to a tariff sheet. Estimated in
+ * the middle of where it has recently sat; it is exposed as an input because a
+ * cold winter moves it more than anything else here.
+ */
+export const DEFAULT_PGA_PER_CCF = 0.55;
+
+/**
+ * Average monthly usage. The Railroad Commission of Texas puts Houston
+ * residential consumption at about 3.4 Mcf, or 34 Ccf, a month, having ranged
+ * 23 to 43 Ccf over the preceding fifteen years.
+ */
+export const DEFAULT_GAS_CCF_PER_MONTH = 34;
+
+/**
+ * Seasonal factors on *usage*, not on the bill. Space heating is the bulk of
+ * residential gas here, and water heating alone is 18-20% of annual use, which
+ * is what sets the summer floor.
+ */
+const GAS_WINTER_USAGE_FACTOR = 2.05;
+const GAS_SUMMER_USAGE_FACTOR = 0.22;
+
+/** The tariff, applied. Fixed charge plus usage, never a flat guess. */
+export function centerPointGasBill(args: {
+  ccf: number;
+  pgaPerCcf: number;
+}): number {
+  const { ccf, pgaPerCcf } = args;
+  const perCcf = CENTERPOINT_COMMODITY_PER_CCF + Math.max(0, pgaPerCcf);
+  return roundCents(
+    CENTERPOINT_CUSTOMER_CHARGE + perCcf * Math.max(0, ccf),
+  );
+}
 
 /** Internet. Availability varies by address; price barely does. */
 export const DEFAULT_INTERNET_MONTHLY = 70;
@@ -338,7 +397,10 @@ export function estimateHouseholdUtilities(args: {
   livingSqFt: number;
   electricityRatePerKwh: number;
   hasNaturalGas: boolean;
-  monthlyGas: number;
+  /** Average monthly usage in Ccf; the tariff is applied to it. */
+  gasCcfPerMonth: number;
+  /** Purchased Gas Adjustment per Ccf, the pass-through cost of the gas. */
+  gasPgaPerCcf: number;
   monthlyInternet: number;
   /**
    * Water and sewer already counted inside the mortgage payment as the utility
@@ -354,7 +416,8 @@ export function estimateHouseholdUtilities(args: {
     livingSqFt,
     electricityRatePerKwh,
     hasNaturalGas,
-    monthlyGas,
+    gasCcfPerMonth,
+    gasPgaPerCcf,
     monthlyInternet,
     districtWaterAlreadyInPayment,
   } = args;
@@ -504,17 +567,35 @@ export function estimateHouseholdUtilities(args: {
 
   // --- Gas and internet --------------------------------------------------
   if (hasNaturalGas) {
+    const gasMonthly = centerPointGasBill({
+      ccf: gasCcfPerMonth,
+      pgaPerCcf: gasPgaPerCcf,
+    });
+    /*
+     * The seasonal factors apply to usage, so the fixed customer charge stays
+     * put. That is the whole point: in July the bill is mostly the standing
+     * charge and barely falls, which a percentage of the annual figure gets
+     * badly wrong.
+     */
     items.push({
       id: "gas",
       label: "Natural gas",
-      monthly: roundCents(monthlyGas),
-      basis: "Heating and hot water, so it peaks in winter rather than summer. Many homes in this district are all-electric and pay nothing here — check which this one is.",
-      confidence: "estimated",
+      monthly: gasMonthly,
+      basis: `CenterPoint's residential tariff applied to ${Math.round(gasCcfPerMonth)} Ccf a month: a fixed $${CENTERPOINT_CUSTOMER_CHARGE.toFixed(2)} customer charge plus ${Math.round((CENTERPOINT_COMMODITY_PER_CCF + gasPgaPerCcf) * 100)}¢ per Ccf, of which ${Math.round(gasPgaPerCcf * 100)}¢ is the pass-through cost of the gas itself. Many homes in this district are all-electric and pay none of it — check which this one is.`,
+      confidence: "sourced",
       seasonal: {
-        low: roundCents(monthlyGas * 0.35),
-        high: roundCents(monthlyGas * 2.1),
-        note: "Almost all of it is winter heating. January can be twice the annual average and July close to nothing.",
+        low: centerPointGasBill({
+          ccf: gasCcfPerMonth * GAS_SUMMER_USAGE_FACTOR,
+          pgaPerCcf: gasPgaPerCcf,
+        }),
+        high: centerPointGasBill({
+          ccf: gasCcfPerMonth * GAS_WINTER_USAGE_FACTOR,
+          pgaPerCcf: gasPgaPerCcf,
+        }),
+        note: `Space heating is nearly all of the swing. The summer figure is a water heater and a range, and it does not fall further because $${CENTERPOINT_CUSTOMER_CHARGE.toFixed(2)} of it is the standing charge you pay whatever you burn.`,
       },
+      sourceUrl:
+        "https://www.centerpointenergy.com/en-us/our-services/rates-tariffs/texas",
     });
   }
 

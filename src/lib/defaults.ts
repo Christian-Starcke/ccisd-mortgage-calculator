@@ -7,9 +7,10 @@ import {
 } from "./windstorm";
 import {
   DEFAULT_ELECTRICITY_RATE_PER_KWH,
-  DEFAULT_GAS_MONTHLY,
+  DEFAULT_GAS_CCF_PER_MONTH,
   DEFAULT_INTERNET_MONTHLY,
   DEFAULT_LIVING_SQFT,
+  DEFAULT_PGA_PER_CCF,
 } from "./householdUtilities";
 
 /**
@@ -76,7 +77,14 @@ export interface CalculatorState {
   livingSqFt: number;
   electricityRatePerKwh: number;
   hasNaturalGas: boolean;
-  monthlyGas: number;
+  /**
+   * Average monthly gas usage in Ccf. The CenterPoint tariff is applied to it
+   * rather than a flat bill being assumed, so the fixed customer charge stays
+   * separate from usage and the summer figure comes out right.
+   */
+  gasCcfPerMonth: number;
+  /** Purchased Gas Adjustment per Ccf: the pass-through cost of the gas. */
+  gasPgaPerCcf: number;
   monthlyInternet: number;
 
   // --- You ---------------------------------------------------------------
@@ -222,7 +230,8 @@ export const DEFAULT_STATE: CalculatorState = {
   electricityRatePerKwh: DEFAULT_ELECTRICITY_RATE_PER_KWH,
   // Most homes in this district are all-electric, so gas is off until said.
   hasNaturalGas: false,
-  monthlyGas: DEFAULT_GAS_MONTHLY,
+  gasCcfPerMonth: DEFAULT_GAS_CCF_PER_MONTH,
+  gasPgaPerCcf: DEFAULT_PGA_PER_CCF,
   monthlyInternet: DEFAULT_INTERNET_MONTHLY,
 
   annualIncome: 110_000,

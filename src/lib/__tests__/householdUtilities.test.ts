@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  CENTERPOINT_COMMODITY_PER_CCF,
+  CENTERPOINT_CUSTOMER_CHARGE,
+  centerPointGasBill,
   DEFAULT_ELECTRICITY_RATE_PER_KWH,
   districtWaterBillFor,
   estimateHouseholdUtilities,
@@ -13,7 +16,8 @@ const BASE = {
   livingSqFt: 2_000,
   electricityRatePerKwh: DEFAULT_ELECTRICITY_RATE_PER_KWH,
   hasNaturalGas: false,
-  monthlyGas: 40,
+  gasCcfPerMonth: 34,
+  gasPgaPerCcf: 0.55,
   monthlyInternet: 70,
   districtWaterAlreadyInPayment: 0,
   districts: [],
@@ -174,7 +178,7 @@ describe("water, sewer and refuse follow the supplier", () => {
     }
   });
 
-  it("keeps Friendswood an estimate, because only its sewer was read", () => {
+  it("uses Friendswood's own rates, both of which carry an allowance", () => {
     const u = estimateHouseholdUtilities({
       ...BASE,
       service: "city",
@@ -184,9 +188,32 @@ describe("water, sewer and refuse follow the supplier", () => {
       ],
     });
     expect(u.providerName).toBe("City of Friendswood");
-    // Part sourced, part placeholder, so it must not claim to be sourced.
-    expect(item(u, "water-sewer")!.confidence).toBe("estimated");
-    expect(item(u, "water-sewer")!.basis).toMatch(/part placeholder/i);
+    expect(item(u, "water-sewer")!.confidence).toBe("sourced");
+    // Water $26.95 incl. 3,000 gal + 2x$3.70; sewer $32.00 incl. 2,000 + 3x$4.90.
+    expect(item(u, "water-sewer")!.monthly).toBeCloseTo(81.05, 2);
+    expect(item(u, "refuse")!.monthly).toBeCloseTo(25.01, 2);
+  });
+
+  it("has no city left on a regional placeholder", () => {
+    // Every city that supplies water in this district is now sourced. The
+    // fallback still exists and is tested below with a stand-in.
+    for (const [county, code] of [
+      ["galveston", "C40"],
+      ["harris", "061"],
+      ["harris", "084"],
+      ["harris", "076"],
+      ["harris", "074"],
+      ["harris", "073"],
+      ["harris", "058"],
+      ["galveston", "C37"],
+    ] as const) {
+      const u = estimateHouseholdUtilities({
+        ...BASE,
+        service: "city",
+        taxingUnits: [requireUnit(county, code)],
+      });
+      expect(item(u, "water-sewer")!.confidence).toBe("sourced");
+    }
   });
 
   it("bills Friendswood the same either side of the county line", () => {
@@ -411,9 +438,14 @@ describe("gas and internet", () => {
       taxingUnits: LEAGUE_CITY,
       hasNaturalGas: true,
     });
-    expect(item(with_, "gas")!.monthly).toBe(40);
+    const gas = item(with_, "gas")!;
+    // $24.83 fixed + 34 Ccf x ($0.15834 + $0.55).
+    expect(gas.monthly).toBeCloseTo(
+      CENTERPOINT_CUSTOMER_CHARGE + 34 * (CENTERPOINT_COMMODITY_PER_CCF + 0.55),
+      2,
+    );
     // Gas peaks in winter, unlike everything else here.
-    expect(item(with_, "gas")!.seasonal!.high).toBeGreaterThan(40);
+    expect(gas.seasonal!.high).toBeGreaterThan(gas.monthly);
   });
 
   it("totals every line it reports", () => {
@@ -447,7 +479,8 @@ describe("utilities never touch the mortgage payment", () => {
       ...DEFAULT_STATE,
       livingSqFt: 6_000,
       hasNaturalGas: true,
-      monthlyGas: 300,
+      gasCcfPerMonth: 180,
+      gasPgaPerCcf: 1.2,
       monthlyInternet: 250,
       electricityRatePerKwh: 0.25,
     };
@@ -482,7 +515,8 @@ describe("utilities never touch the mortgage payment", () => {
       livingSqFt: heavy.livingSqFt,
       electricityRatePerKwh: heavy.electricityRatePerKwh,
       hasNaturalGas: true,
-      monthlyGas: heavy.monthlyGas,
+      gasCcfPerMonth: heavy.gasCcfPerMonth,
+      gasPgaPerCcf: heavy.gasPgaPerCcf,
       monthlyInternet: heavy.monthlyInternet,
     });
     expect(utilB.monthlyTotal).toBeGreaterThan(utilA.monthlyTotal * 3);
@@ -520,5 +554,79 @@ describe("districtWaterBillFor", () => {
 
   it("returns null when there is no district at all", () => {
     expect(districtWaterBillFor([])).toBeNull();
+  });
+});
+
+/**
+ * Gas is the one utility with a large fixed component, and modelling it as a
+ * flat monthly figure got the seasonal shape badly wrong. The tariff is a
+ * standing charge plus usage, so the summer bill floors out at the standing
+ * charge rather than falling toward zero.
+ */
+describe("natural gas, from the CenterPoint tariff", () => {
+  const GAS = {
+    ...BASE,
+    service: "city" as const,
+    taxingUnits: [requireUnit("harris", "061")],
+    hasNaturalGas: true,
+  };
+
+  it("charges the fixed customer charge even at zero usage", () => {
+    expect(centerPointGasBill({ ccf: 0, pgaPerCcf: 0.55 })).toBeCloseTo(
+      CENTERPOINT_CUSTOMER_CHARGE,
+      2,
+    );
+  });
+
+  it("adds the commodity charge and the pass-through per Ccf", () => {
+    const bill = centerPointGasBill({ ccf: 34, pgaPerCcf: 0.55 });
+    expect(bill).toBeCloseTo(
+      CENTERPOINT_CUSTOMER_CHARGE + 34 * (CENTERPOINT_COMMODITY_PER_CCF + 0.55),
+      2,
+    );
+    // The RRC's Houston average lands the bill around $49.
+    expect(bill).toBeGreaterThan(45);
+    expect(bill).toBeLessThan(55);
+  });
+
+  it("moves with the pass-through, which is the volatile part", () => {
+    const cheap = centerPointGasBill({ ccf: 34, pgaPerCcf: 0.3 });
+    const dear = centerPointGasBill({ ccf: 34, pgaPerCcf: 1.1 });
+    expect(dear - cheap).toBeCloseTo(34 * 0.8, 2);
+  });
+
+  /**
+   * The bug this model exists to fix. Scaling a $49 flat bill by a summer
+   * factor of 0.35 gave about $17; the real July bill is around $30, because
+   * $24.83 of it is the standing charge and does not scale at all.
+   */
+  it("floors the summer bill at the standing charge, not near zero", () => {
+    const u = estimateHouseholdUtilities(GAS);
+    const gas = item(u, "gas")!;
+    expect(gas.seasonal!.low).toBeGreaterThan(CENTERPOINT_CUSTOMER_CHARGE);
+    expect(gas.seasonal!.low).toBeLessThan(gas.monthly);
+    // Well above what scaling the whole bill by the usage factor would give.
+    expect(gas.seasonal!.low).toBeGreaterThan(gas.monthly * 0.5);
+  });
+
+  it("still peaks in winter, unlike every other utility here", () => {
+    const u = estimateHouseholdUtilities(GAS);
+    const gas = item(u, "gas")!;
+    const power = item(u, "electricity")!;
+    expect(gas.seasonal!.high).toBeGreaterThan(gas.monthly);
+    // Electricity peaks in summer; gas in winter. They are out of phase, which
+    // is why the peak-month total is not simply the sum of both peaks.
+    expect(power.seasonal!.high).toBeGreaterThan(power.monthly);
+  });
+
+  it("is sourced, and never negative on nonsense input", () => {
+    const u = estimateHouseholdUtilities({
+      ...GAS,
+      gasCcfPerMonth: -10,
+      gasPgaPerCcf: -1,
+    });
+    const gas = item(u, "gas")!;
+    expect(gas.confidence).toBe("sourced");
+    expect(gas.monthly).toBeCloseTo(CENTERPOINT_CUSTOMER_CHARGE, 2);
   });
 });

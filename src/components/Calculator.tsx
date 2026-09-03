@@ -215,7 +215,10 @@ export function Calculator() {
               </Disclosure>
               <Disclosure summary="Assistance applied on this path">
                 <div className="pt-2">
-                  <AssistancePlaybook scenario={detailScenario} />
+                  <AssistancePlaybook
+                    scenario={detailScenario}
+                    county={state.resolvedParcel?.ref.county ?? null}
+                  />
                 </div>
               </Disclosure>
               <Disclosure summary="Cost and equity over time">
@@ -543,7 +546,8 @@ function derive(state: CalculatorState) {
     livingSqFt: state.livingSqFt,
     electricityRatePerKwh: state.electricityRatePerKwh,
     hasNaturalGas: state.hasNaturalGas,
-    monthlyGas: state.monthlyGas,
+    gasCcfPerMonth: state.gasCcfPerMonth,
+    gasPgaPerCcf: state.gasPgaPerCcf,
     monthlyInternet: state.monthlyInternet,
     districtWaterAlreadyInPayment: detailScenario.monthly.mudUtility,
   });
