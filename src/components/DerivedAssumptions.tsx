@@ -302,6 +302,79 @@ export function DerivedAssumptions({
           </div>
         </Disclosure>
 
+        <Disclosure summary="Running the house · utilities">
+          <div className="space-y-4 pt-1">
+            <Callout tone="neutral">
+              None of this is part of the mortgage payment, is escrowed, or
+              counts toward your debt-to-income ratio. It is estimated
+              separately and added alongside, because it comes out of the same
+              paycheque.
+            </Callout>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field
+                label="Living area"
+                htmlFor="living-sqft"
+                hint="From the listing. Air conditioning is most of a Houston electric bill, so floor area predicts it better than anything else."
+              >
+                <NumberInput
+                  id="living-sqft"
+                  value={state.livingSqFt}
+                  onChange={(value) => update("livingSqFt", value)}
+                  min={400}
+                  max={12_000}
+                />
+              </Field>
+              <Field
+                label="Electricity rate"
+                htmlFor="kwh-rate"
+                hint="Texas is deregulated, so this is yours to shop. Plans ran 12¢ to 19¢ in 2026."
+              >
+                <CurrencyInput
+                  id="kwh-rate"
+                  value={state.electricityRatePerKwh}
+                  onChange={(value) => update("electricityRatePerKwh", value)}
+                  max={1}
+                />
+              </Field>
+            </div>
+
+            <Toggle
+              checked={state.hasNaturalGas}
+              onChange={(checked) => update("hasNaturalGas", checked)}
+              label="The house has natural gas"
+              hint="Many homes in this district are all-electric and pay nothing for gas. Check the listing rather than assuming."
+            />
+            {state.hasNaturalGas && (
+              <Field
+                label="Natural gas per month"
+                htmlFor="gas-monthly"
+                hint="Annual average. It is heating and hot water, so January can be twice this and July close to nothing."
+              >
+                <CurrencyInput
+                  id="gas-monthly"
+                  value={state.monthlyGas}
+                  onChange={(value) => update("monthlyGas", value)}
+                  max={500}
+                />
+              </Field>
+            )}
+
+            <Field
+              label="Internet per month"
+              htmlFor="internet-monthly"
+              hint="Which providers reach an address varies here; what they charge barely does."
+            >
+              <CurrencyInput
+                id="internet-monthly"
+                value={state.monthlyInternet}
+                onChange={(value) => update("monthlyInternet", value)}
+                max={500}
+              />
+            </Field>
+          </div>
+        </Disclosure>
+
         <Disclosure summary="Insurance and flood">
           <div className="space-y-4 pt-1">
               <Field
@@ -365,10 +438,14 @@ export function DerivedAssumptions({
               label="FEMA Special Flood Hazard Area"
               hint={
                 parcel?.flood
-                  ? `FEMA zone ${parcel.flood.zone ?? "unknown"}.`
-                  : parcel?.ref.county === "galveston"
-                    ? "Not known for this address. Galveston CAD's download carries no parcel geometry, so there is no point to test against the FEMA layer — look this one up yourself. Leaving it off is not the same as being outside a flood zone."
-                    : "Looked up from the parcel centroid when you pick a Harris County address."
+                  ? `FEMA zone ${parcel.flood.zone ?? "unknown"}${
+                      parcel.flood.inSpecialFloodHazardArea
+                        ? " — a Special Flood Hazard Area, so your lender will require flood insurance."
+                        : " — outside the Special Flood Hazard Area, so flood insurance is optional."
+                    }`
+                  : parcel
+                    ? "No geometry resolved for this parcel, so the FEMA layer could not be tested. Look it up yourself — leaving it off is not the same as being outside a flood zone."
+                    : "Looked up from the parcel centroid once you pick an address."
               }
             />
             {state.inFloodZone && (

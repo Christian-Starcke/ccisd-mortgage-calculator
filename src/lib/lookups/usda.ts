@@ -27,6 +27,7 @@ export async function lookupUsdaEligibility(
       returnCountOnly: true,
       f: "json",
     }),
+    { retries: 2 },
   );
 
   if (!result.ok) return result;

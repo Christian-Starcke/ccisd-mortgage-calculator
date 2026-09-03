@@ -5,6 +5,12 @@ import {
   DEFAULT_WINDSTORM_RATE_PER_THOUSAND,
   HOMEOWNERS_RATE_PER_THOUSAND,
 } from "./windstorm";
+import {
+  DEFAULT_ELECTRICITY_RATE_PER_KWH,
+  DEFAULT_GAS_MONTHLY,
+  DEFAULT_INTERNET_MONTHLY,
+  DEFAULT_LIVING_SQFT,
+} from "./householdUtilities";
 
 /**
  * Starting assumptions.
@@ -62,6 +68,16 @@ export interface CalculatorState {
   taxAppraisedValueOverride: number | null;
   pidAnnualAssessment: number;
   monthlyMudUtility: number;
+
+  // --- Running the house ---------------------------------------------------
+  // Estimated separately from the payment and never folded into it: a lender
+  // counts none of this, and mixing it in would corrupt DTI and escrow.
+  /** Living area, which drives the electricity estimate. From the listing. */
+  livingSqFt: number;
+  electricityRatePerKwh: number;
+  hasNaturalGas: boolean;
+  monthlyGas: number;
+  monthlyInternet: number;
 
   // --- You ---------------------------------------------------------------
   annualIncome: number;
@@ -201,6 +217,13 @@ export const DEFAULT_STATE: CalculatorState = {
   taxAppraisedValueOverride: null,
   pidAnnualAssessment: 0,
   monthlyMudUtility: 0,
+
+  livingSqFt: DEFAULT_LIVING_SQFT,
+  electricityRatePerKwh: DEFAULT_ELECTRICITY_RATE_PER_KWH,
+  // Most homes in this district are all-electric, so gas is off until said.
+  hasNaturalGas: false,
+  monthlyGas: DEFAULT_GAS_MONTHLY,
+  monthlyInternet: DEFAULT_INTERNET_MONTHLY,
 
   annualIncome: 110_000,
   annualHouseholdIncome: 110_000,

@@ -21,6 +21,8 @@ export async function lookupFloodZone(
   lon: number,
   lat: number,
 ): Promise<{ ok: true; flood: FloodLookup } | { ok: false; error: string }> {
+  // FEMA's NFHL drops connections often enough that a single attempt loses a
+  // knowable answer on roughly two addresses in five. See FetchOptions.retries.
   const result = await fetchJson<FemaResponse>(
     withQuery(FEMA_LAYER, {
       geometry: `${lon},${lat}`,
@@ -31,6 +33,7 @@ export async function lookupFloodZone(
       returnGeometry: false,
       f: "json",
     }),
+    { retries: 2 },
   );
 
   if (!result.ok) return result;

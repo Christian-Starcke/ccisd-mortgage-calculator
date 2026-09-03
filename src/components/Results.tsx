@@ -5,6 +5,7 @@ import type { ScenarioResult } from "@/lib/scenario";
 import type { AffordabilityResult } from "@/lib/affordability";
 import type { CalculatorState } from "@/lib/defaults";
 import type { WaterServiceAssessment } from "@/lib/waterService";
+import type { HouseholdUtilities } from "@/lib/householdUtilities";
 import { Badge, Callout, Card, Disclosure, LineItem, Stat } from "./ui";
 
 const PAYMENT_COLORS = {
@@ -770,6 +771,111 @@ export function WaterServiceCard({
           </Callout>
         </div>
       )}
+    </Card>
+  );
+}
+
+/**
+ * The cost of running the house, kept beside the payment rather than inside it.
+ *
+ * The separation is the point. A lender counts none of this, escrows none of
+ * it, and none of it belongs in a debt-to-income ratio — but all of it comes
+ * out of the same paycheque, and a buyer who budgets only the mortgage payment
+ * is short by the better part of $400 a month.
+ */
+export function HouseholdUtilitiesCard({
+  utilities,
+  scenario,
+}: {
+  utilities: HouseholdUtilities;
+  scenario: ScenarioResult;
+}) {
+  const confidenceNote: Record<string, string> = {
+    sourced: "From the provider's own published rates",
+    estimated: "Regional estimate — not this provider's own schedule",
+    ask: "Depends on you — set it to your own",
+  };
+
+  const grandTotal = scenario.monthly.total + utilities.monthlyTotal;
+  const peakTotal = scenario.monthly.total + utilities.peakMonthlyTotal;
+
+  return (
+    <Card
+      title="What it costs to run the house"
+      subtitle="Utilities are not part of the mortgage payment, are not escrowed, and are not counted in your debt-to-income ratio — but they come out of the same paycheque. Estimated separately so neither number misleads you."
+    >
+      {utilities.providerName && (
+        <div className="flex flex-wrap gap-2">
+          <Badge tone="neutral">Supplied by {utilities.providerName}</Badge>
+        </div>
+      )}
+
+      <div className="mt-4 divide-y divide-ink-100">
+        {utilities.items.map((item) => (
+          <LineItem
+            key={item.id}
+            label={item.label}
+            amount={formatUSD(item.monthly)}
+            note={
+              <>
+                {item.basis}
+                {item.seasonal && (
+                  <>
+                    {" "}
+                    Ranges {formatUSD(item.seasonal.low)} to{" "}
+                    {formatUSD(item.seasonal.high)} across the year.{" "}
+                    {item.seasonal.note}
+                  </>
+                )}
+                {item.confidence !== "sourced" && (
+                  <> ({confidenceNote[item.confidence]}.)</>
+                )}
+              </>
+            }
+          />
+        ))}
+        <LineItem
+          label="Utilities, monthly"
+          amount={formatUSD(utilities.monthlyTotal)}
+          emphasis
+        />
+      </div>
+
+      <div className="mt-5 divide-y divide-ink-100 border-t border-ink-200 pt-1">
+        <LineItem
+          label="Mortgage payment"
+          amount={formatUSD(scenario.monthly.total)}
+          note="Principal, interest, taxes, insurance, mortgage insurance and HOA — the number a lender underwrites."
+        />
+        <LineItem
+          label="Utilities"
+          amount={formatUSD(utilities.monthlyTotal)}
+        />
+        <LineItem
+          label="What living here actually costs"
+          amount={formatUSD(grandTotal)}
+          emphasis
+        />
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <Callout tone="warn" title="August is not the average">
+          Air conditioning makes summer the expensive half of the year here. In
+          the peak month this basket runs about{" "}
+          {formatUSD(utilities.peakMonthlyTotal)} rather than{" "}
+          {formatUSD(utilities.monthlyTotal)}, putting the all-in cost near{" "}
+          {formatUSD(peakTotal)}. Budget on the annual figure, but have the
+          summer number in mind before your first July.
+        </Callout>
+
+        <Callout tone="neutral" title="Still not counted">
+          <ul className="list-disc space-y-1 pl-4">
+            {utilities.notIncluded.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </Callout>
+      </div>
     </Card>
   );
 }

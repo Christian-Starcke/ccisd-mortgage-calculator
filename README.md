@@ -81,6 +81,22 @@ lien are all "down payment assistance" and they are not remotely the same thing;
 the calculator distinguishes them and shows the monthly payment a repayable
 second creates.
 
+**Separates the water supplier from the city**, because it is the largest
+driver of monthly cost that no listing states. A utility district levies its
+own property tax *and* bills water separately *and* costs a year of that tax in
+escrow at closing; a city does none of the three. The calculator says whether
+the parcel is city-served, in a district, or genuinely unknown, and prices the
+difference — which on the expensive districts here runs past $450 a month.
+
+**Estimates what it costs to run the house**, separately from what it costs to
+buy it. Electricity from floor area, water and sewer and refuse from whoever
+actually supplies them, gas and internet from you. Kept rigorously outside the
+mortgage payment: a lender counts none of it, escrows none of it, and none of
+it belongs in a debt-to-income ratio — but it is roughly $330 a month and it
+comes out of the same paycheque. It also reports the August figure, because a
+Houston electricity bill runs a third above its annual average in the month
+new owners first meet it.
+
 **Ranks concrete actions by dollars saved** in "Your cheapest path to owning this
 house." Every item is specific: not "shop your rate" but "a 0.25% lower rate is
 $64 a month and $5,367 over seven years."
@@ -125,11 +141,14 @@ confirmed from a primary source. Beyond those:
    wider than almost anywhere in the country. Get real quotes, and note that
    inside the designated area you will hold two or three policies rather than
    one.
-4. **Your flood zone.** Far more of this district is in a Special Flood Hazard
-   Area than in an inland one, and the Harris County lookup here tests the
-   parcel centroid against the FEMA layer. Galveston County parcels get no flood
-   lookup at all, because GCAD's data drop carries no geometry — check those on
-   the FEMA map yourself.
+4. **Your flood zone**, if the lookup could not answer. Far more of this
+   district is in a Special Flood Hazard Area than in an inland one. Both
+   counties are now tested against the FEMA layer — Harris from the live parcel
+   geometry, Galveston from a centroid reprojected out of GCAD's shapefile at
+   ingest. FEMA's service is unreliable enough that the calculator retries it,
+   but when it still cannot answer the calculator says the zone is unknown
+   rather than showing no premium, and that is your cue to check the FEMA map
+   yourself.
 5. **Your utility district.** Two otherwise identical houses can differ by more
    than a full percent of value a year. Galveston County MUD 36 levies $1.15 per
    $100 — more than the school tax — while WCID 12 levies $0.18. A selected
@@ -151,7 +170,10 @@ confirmed from a primary source. Beyond those:
 | Clear Creek ISD rate | Adopted 2025 | $0.969 = $0.699 M&O + $0.270 I&S, held flat for 2025-26. Published identically by both counties, which is a useful cross-check. |
 | CCISD homestead exemption | $140,000 + 5% | The state exemption from Texas Proposition 13 (November 2025) stacked with the district's 5% local option, floored at $5,000 by Tax Code 11.13(n). |
 | Harris parcel footprint | HCAD PDATA 2026 certified | 50,241 accounts. |
-| Galveston parcel footprint | GCAD drop, April 2026 | 39,156 parcels. |
+| Galveston parcel footprint | GCAD drop, April 2026 | 39,156 parcels, each with a centroid reprojected from EPSG:2278 so the FEMA layer can be sampled. |
+| League City water, sewer, refuse | April 2026 | Published residential rates. Staged increases run through 2029. |
+| City of Houston water and sewer | April 2026 | Rates effective April 2026; single-family refuse is funded from general revenue, not a separate charge. |
+| Houston-area electricity | 2026 | About 14.35¢/kWh average, plans 12–19¢; ~1,150 kWh a month for an average residence. Deregulated, so the rate is a shopping decision. |
 | Conforming loan limit | 2026: $832,750 | FHFA, announced November 2025. |
 | FHA loan limit | 2026: $541,287 | HUD Mortgagee Letter 2025-23. One figure for the whole district: Harris and Galveston are both in the Houston-Pasadena-The Woodlands MSA. |
 | Windstorm premium | TWIA, mid-2026 | TWIA's average residential premium was about $2,541; Galveston County averages roughly $2,300–$2,400. |
@@ -207,10 +229,16 @@ Creek's counties does:
   account-to-jurisdiction mapping is published only in an annual 112 MB bulk
   drop. So addresses and values are still queried live, and only the codes come
   from storage, joined on the account number.
-- **Galveston** publishes no query service of any kind, only a yearly shapefile.
-  So the whole parcel is stored — situs, values, codes — and that table *is* the
-  Galveston lookup. Its rows are a dated snapshot, and the UI says so rather
-  than letting a stale record pass for live data.
+- **Galveston** publishes no query service of any kind, only a yearly
+  shapefile. So the whole parcel is stored — situs, values, codes — and that
+  table *is* the Galveston lookup. Its rows are a dated snapshot, and the UI
+  says so rather than letting a stale record pass for live data. The shapefile
+  also carries geometry, in NAD83 Texas South Central feet, so the ingest
+  reprojects each parcel centroid to WGS84 (`scripts/lib/statePlane.mjs`) and
+  stores it. That is what lets the FEMA flood layer be sampled on this side of
+  the county line; without it every Galveston address had an unknown flood
+  zone, which is the worst possible gap because a missing premium reads as
+  "not in a flood zone".
 
 Only the parcel-to-taxing-unit mapping lives in the database. Adopted rates and
 homestead exemption rules stay in version-controlled TypeScript, so a rate change
@@ -228,8 +256,10 @@ this is an annual October job.
 # 1. Fetch the two source drops into data-drop/ (gitignored, ~1.5 GB unzipped).
 #    Harris:    https://download.hcad.org/data/CAMA/<year>/Real_jur_exempt.zip
 #               unzip jur_value.txt and jur_tax_dist_exempt_value_rate.txt
-#    Galveston: https://galvestoncad.org/gis-data/ -> "Parcel DBF - Data Only"
-#               unzip parcel_data.dbf
+#    Galveston: https://galvestoncad.org/gis-data/ -> "Parcels with data"
+#               unzip parcels.dbf AND parcels.shp. Use parcels.zip, not
+#               parcel_data.zip: same attributes plus the geometry, and
+#               without geometry every Galveston flood zone is unknown.
 
 npm run build:footprint      # footprint + Harris exemption rules from HCAD
 npm run build:harris-units   # adopted rates from the Harris rate table
@@ -266,8 +296,14 @@ security; the ingest script needs a service key, which is never used by the app.
 - **A parcel split between two school districts is not modeled.** The appraisal
   record apportions the value; the calculator prices all of it in Clear Creek
   ISD and warns you. About 0.5% of the footprint is affected.
-- **Galveston County parcels get no flood or USDA point lookup**, because the
-  GCAD drop has no geometry. The Harris side does.
+- **FEMA's flood service is genuinely unreliable** — it dropped two
+  connections in five when measured. The lookup retries, which takes the miss
+  rate under 7%, but a miss still reports the zone as unknown rather than
+  showing no premium.
+- **Utility estimates are estimates.** Household usage moves them more than any
+  address does, and only League City's and Houston's own rate schedules have
+  been read; the other cities carry a regional placeholder that the UI labels
+  as such. Natural gas is not from CenterPoint's tariff.
 - **HCAD does not publish exemptions on its parcel layer**, so the "the seller's
   homestead does not transfer" warning is driven off the record only on the
   Galveston side. It is stated unconditionally on the Harris side instead.

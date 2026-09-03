@@ -17,8 +17,12 @@
  * Inputs, unzipped into ./data-drop first (they are 1GB uncompressed between
  * them, which is why they are not fetched here):
  *
- *   jur_value.txt     from https://download.hcad.org/data/CAMA/<year>/Real_jur_exempt.zip
- *   parcel_data.dbf   from https://galvestoncad.org/wp-content/uploads/<year>/<mm>/parcel_data.zip
+ *   jur_value.txt                 from https://download.hcad.org/data/CAMA/<year>/Real_jur_exempt.zip
+ *   parcels.dbf and parcels.shp   from https://galvestoncad.org/wp-content/uploads/<year>/<mm>/parcels.zip
+ *
+ * Use parcels.zip rather than parcel_data.zip: it holds the same attributes
+ * plus the geometry, and without geometry every Galveston address has an
+ * unknown flood zone.
  *
  * Usage:
  *   SUPABASE_URL=... SUPABASE_SERVICE_KEY=... node scripts/ingestParcels.mjs
@@ -28,11 +32,16 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
+import { shapeCentroids } from "./lib/shapefile.mjs";
+import { selfCheck, texasSouthCentralToWgs84 } from "./lib/statePlane.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DROP = path.join(ROOT, "data-drop");
 const HARRIS_FILE = path.join(DROP, "jur_value.txt");
-const GALVESTON_FILE = path.join(DROP, "parcel_data.dbf");
+// parcels.zip carries the same 26 attribute fields as the data-only download
+// plus the geometry, so it is the only Galveston file needed.
+const GALVESTON_FILE = path.join(DROP, "parcels.dbf");
+const GALVESTON_SHP = path.join(DROP, "parcels.shp");
 
 /** Clear Creek ISD, as each district codes it. */
 const CCISD_HARRIS = "027";
@@ -249,6 +258,29 @@ async function ingestGalveston() {
     "VAL26TOT",
     "LANDUSE",
   ];
+
+  /*
+   * Geometry comes from parcels.shp, whose records are 1:1 with the .dbf in
+   * the same order. That ordering is the whole join, so the two are walked in
+   * lockstep and a length mismatch is fatal rather than silently misaligning
+   * every parcel's flood zone by one row.
+   */
+  let centroids = null;
+  if (fs.existsSync(GALVESTON_SHP)) {
+    const check = selfCheck();
+    if (!check.ok) {
+      throw new Error(
+        `State plane reprojection self-check failed (origin came back as ${JSON.stringify(check.origin)}). Refusing to write centroids.`,
+      );
+    }
+    centroids = shapeCentroids(GALVESTON_SHP);
+    console.log("Galveston: reading geometry from parcels.shp alongside the DBF.");
+  } else {
+    console.warn(
+      `Galveston: ${path.basename(GALVESTON_SHP)} not found — writing rows with no centroid, which leaves every flood zone unknown. Download parcels.zip rather than parcel_data.zip.`,
+    );
+  }
+
   console.log("Galveston: streaming the parcel DBF...");
 
   let seen = 0;
@@ -260,8 +292,23 @@ async function ingestGalveston() {
   // attributes. They are the same parcel, and sending both in one upsert makes
   // Postgres reject the whole batch ("cannot affect row a second time").
   const emitted = new Set();
+  let withCentroid = 0;
   for (const record of dbfRecords(GALVESTON_FILE, columns)) {
     seen += 1;
+
+    // Advance the geometry cursor for EVERY dbf record, including the ones
+    // skipped below, or the two streams drift apart.
+    let point = null;
+    if (centroids) {
+      const next = centroids.next();
+      if (next.done) {
+        throw new Error(
+          `parcels.shp ran out of records at dbf row ${seen}. The two files are not from the same drop.`,
+        );
+      }
+      point = next.value;
+    }
+
     const geoid = record.GEOID;
     if (!geoid || geoid === "N/A") continue;
     const codes = record.ENTITIES.split(",")
@@ -275,9 +322,13 @@ async function ingestGalveston() {
     emitted.add(geoid);
 
     kept += 1;
+    const wgs84 = point ? texasSouthCentralToWgs84(point.x, point.y) : null;
+    if (wgs84) withCentroid += 1;
     batch.push({
       county: "galveston",
       parcel_id: geoid,
+      centroid_lon: wgs84 ? Number(wgs84.lon.toFixed(7)) : null,
+      centroid_lat: wgs84 ? Number(wgs84.lat.toFixed(7)) : null,
       ...splitSitus(record.SITUS),
       entity_codes: codes,
       exemption_codes: record.EXEMPT || null,
@@ -296,6 +347,9 @@ async function ingestGalveston() {
   console.log(
     `Galveston: ${kept.toLocaleString()} of ${seen.toLocaleString()} parcels are in Clear Creek ISD` +
       ` (${duplicates.toLocaleString()} repeated polygon parts collapsed).`,
+  );
+  console.log(
+    `Galveston: ${withCentroid.toLocaleString()} of those carry a centroid for the flood lookup.`,
   );
 }
 

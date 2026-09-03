@@ -24,6 +24,7 @@ import {
 import { buildScenario, type ScenarioResult } from "@/lib/scenario";
 import { calculatePropertyTax } from "@/lib/propertyTax";
 import { assessWaterService } from "@/lib/waterService";
+import { estimateHouseholdUtilities } from "@/lib/householdUtilities";
 import {
   TAX_YEAR,
   findLocationPreset,
@@ -44,6 +45,7 @@ import {
 import {
   AffordabilityCard,
   CashToCloseCard,
+  HouseholdUtilitiesCard,
   WaterServiceCard,
   Milestones,
   PaymentSummary,
@@ -69,8 +71,15 @@ export function Calculator() {
   // stay responsive while the results catch up a beat later.
   const deferredState = useDeferredValue(state);
 
-  const { ranking, detailScenario, comparisonRows, affordability, savingsActions } =
-    useMemo(() => derive(deferredState), [deferredState]);
+  const {
+    ranking,
+    detailScenario,
+    comparisonRows,
+    affordability,
+    savingsActions,
+    water,
+    utilities,
+  } = useMemo(() => derive(deferredState), [deferredState]);
 
   const selectPath = (path: RankedPath) => {
     const auto = ranking.bestCombined;
@@ -146,15 +155,13 @@ export function Calculator() {
             cashAvailable={state.cashAvailable}
           />
           <WaterServiceCard
-            water={assessWaterService({
-              propertyTax: detailScenario.propertyTax,
-              monthlyWaterBill: detailScenario.monthly.mudUtility,
-              hasParcel: state.resolvedParcel != null,
-              unknownRateCodes: state.resolvedParcel?.missingRateCodes ?? [],
-              taxEscrowMonths: detailScenario.closingCosts.taxEscrowMonths,
-            })}
+            water={water}
             scenario={detailScenario}
             hasParcel={state.resolvedParcel != null}
+          />
+          <HouseholdUtilitiesCard
+            utilities={utilities}
+            scenario={detailScenario}
           />
           <AffordabilityCard affordability={affordability} state={state} />
 
@@ -492,11 +499,35 @@ function derive(state: CalculatorState) {
 
   const affordability = calculateAffordability(inputs, options);
 
+  // Derived once and shared, so the water card and the utilities card cannot
+  // disagree about who supplies the water.
+  const water = assessWaterService({
+    propertyTax: detailScenario.propertyTax,
+    monthlyWaterBill: detailScenario.monthly.mudUtility,
+    hasParcel: state.resolvedParcel != null,
+    unknownRateCodes: state.resolvedParcel?.missingRateCodes ?? [],
+    taxEscrowMonths: detailScenario.closingCosts.taxEscrowMonths,
+  });
+
+  const utilities = estimateHouseholdUtilities({
+    service: water.service,
+    taxingUnits: detailScenario.propertyTax.lineItems.map((row) => row.unit),
+    districts: water.districts,
+    livingSqFt: state.livingSqFt,
+    electricityRatePerKwh: state.electricityRatePerKwh,
+    hasNaturalGas: state.hasNaturalGas,
+    monthlyGas: state.monthlyGas,
+    monthlyInternet: state.monthlyInternet,
+    districtWaterAlreadyInPayment: detailScenario.monthly.mudUtility,
+  });
+
   return {
     ranking,
     detailScenario,
     comparisonRows,
     affordability,
+    water,
+    utilities,
     savingsActions: buildSavingsActions({
       state: detailState,
       scenario: detailScenario,

@@ -16,9 +16,10 @@ import { assessWindExposure } from "@/lib/windstorm";
  *              the stored footprint. Both are required, because HCAD's parcel
  *              layer has no units and the stored row has no address.
  *
- *   Galveston  everything from the stored GCAD drop. There is no live service
- *              to call, so there is no geometry either, which means no USDA or
- *              flood point lookup on that side. Reported, not guessed.
+ *   Galveston  everything from the stored GCAD drop, including a centroid
+ *              reprojected out of the district's shapefile at ingest. There is
+ *              no live service to call, but the geometry is published, so the
+ *              FEMA and USDA layers can still be sampled.
  */
 export async function lookupProperty(
   ref: ParcelRef,
@@ -104,6 +105,15 @@ async function lookupGalveston(
   const resolved = resolveUnitsFromCodes("galveston", codes, rateOverrides);
   const situs = row.situs ?? "";
 
+  // GCAD publishes no query service, but it does publish geometry. The centroid
+  // was reprojected out of its shapefile at ingest, which is what lets the FEMA
+  // and USDA layers be sampled on this side of the county line at all.
+  const centroid =
+    row.centroid_lon != null && row.centroid_lat != null
+      ? { lon: row.centroid_lon, lat: row.centroid_lat }
+      : null;
+  const geo = await lookupGeography(centroid);
+
   return {
     ok: true,
     parcel: {
@@ -119,12 +129,8 @@ async function lookupGalveston(
       yearBuilt: null,
       livingSqFt: null,
       sellerExemptions: row.exemption_codes,
-      // GCAD's data-only drop carries no geometry, so there is no point to
-      // test against the USDA or FEMA layers. Both come back unknown rather
-      // than defaulting to a convenient answer.
-      centroid: null,
-      usdaEligible: null,
-      flood: null,
+      centroid,
+      ...geo,
       isClearCreekIsd: resolved.isClearCreekIsd,
       schoolCodes: resolved.schoolCodes,
       schoolNames: resolved.schoolNames,

@@ -99,8 +99,9 @@ Webster.
   mailing** address and disagree on roughly a third of rows. Never use them.
 - `GEOID` repeats across polygon parts (~250 in the footprint), with identical
   attributes. The ingest dedupes; without it Postgres rejects the whole batch.
-- No geometry in the drop, so **no flood or USDA point lookup** on this side.
-  Report unknown; do not substitute the Harris answer.
+- The data-only download has no geometry, but `parcels.zip` does. The ingest
+  reprojects a centroid from it, which is what makes flood and USDA lookups
+  work here. See the flood section below.
 
 ## Address parsing
 
@@ -127,6 +128,48 @@ No part of this district is USDA-eligible — it is continuously built-up suburb
 and coastal Houston. The program stays in the catalog so the comparison can say
 what is unavailable instead of going quiet, and the lookup stays because it is
 cheap and honest. Do not delete either; do not pretend it might apply.
+
+## Utilities are not the payment
+
+`src/lib/householdUtilities.ts` estimates the cost of *running* the house.
+Keep it out of `monthly.total` and everything downstream of it. A lender counts
+no utility in a debt-to-income ratio and escrows none of them; folding any in
+would corrupt the DTI test, the affordability ceiling, the escrow deposit and
+the loan comparison simultaneously. There is a test asserting the payment is
+identical across wildly different utility inputs — do not delete it.
+
+- Only water, sewer and refuse vary by address, and they follow the *supplier*:
+  a city (keyed by the city's taxing-unit code) or a utility district.
+- Electricity is a deregulated retail choice, identical across the district,
+  and scales with floor area because air conditioning dominates. It does not
+  vary by address; do not make it.
+- Gas defaults off — much of this district is all-electric, and that is a
+  property attribute, not something the address settles.
+- Confidence markers are load-bearing. Only League City's and Houston's own
+  schedules have been read (`sourced`); every other city carries a regional
+  placeholder (`estimated`) the UI labels as such. Do not promote a placeholder
+  to `sourced` without reading the provider's schedule.
+- Report the August peak alongside the annual mean. A Houston electricity bill
+  runs about a third above average in the month new owners first meet it.
+- A district's water bill is already a line in the payment, so only the
+  shortfall and the refuse charge are added here. Do not double-charge it.
+
+## Flood: both counties are real lookups now
+
+Harris uses the live parcel geometry. Galveston uses a centroid reprojected
+from GCAD's shapefile at ingest (`scripts/lib/statePlane.mjs`, EPSG:2278 to
+WGS84, validated by a self-check plus the county bounding box, and guarded by a
+check constraint on the table). Ingest `parcels.zip`, never `parcel_data.zip` —
+the latter has no geometry.
+
+**FEMA's NFHL service is unreliable**, not slow: it dropped two connections in
+five when measured. `fetchJson` takes a `retries` option for exactly this, and
+FEMA and USDA pass `retries: 2`. Do not add retries to HCAD or the parcel
+database, where a failure means something real.
+
+When the lookup still cannot answer, `flood` is null and the UI says the zone
+is *unknown*. Never let that render as "no flood premium" — the gap understates
+the payment by more than the windstorm line.
 
 ## HOA
 

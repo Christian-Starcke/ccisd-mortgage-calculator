@@ -39,11 +39,18 @@ export interface ParcelRow {
   improvement_value: number | null;
   total_value: number | null;
   land_use: string | null;
+  /**
+   * WGS84 centroid, Galveston only, reprojected from the district's state
+   * plane shapefile at ingest. Null means the flood zone is genuinely unknown
+   * rather than that the parcel is outside one.
+   */
+  centroid_lon: number | null;
+  centroid_lat: number | null;
   source_vintage: string;
 }
 
 const SELECT =
-  "county,parcel_id,situs,situs_number,situs_zip,entity_codes,exemption_codes,land_value,improvement_value,total_value,land_use,source_vintage";
+  "county,parcel_id,situs,situs_number,situs_zip,entity_codes,exemption_codes,land_value,improvement_value,total_value,land_use,centroid_lon,centroid_lat,source_vintage";
 
 async function query(
   path: string,
